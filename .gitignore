@@ -6,3 +6,6 @@
 *.png
 *.html
 *.csv
+*.xlsx
+data/
+.DS_Store
