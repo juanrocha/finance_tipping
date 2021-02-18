@@ -1,0 +1,14 @@
+---
+title: "Notes"
+output: html_notebook
+author: Juan Rocha
+---
+
+To-do list:
+
+1. Compute the import / export ratio per country
+2. Same at commodity level: are there commodities that are purely trade driven?
+3. Explore Paula's file: rank countries per number of companies on high risk
+4. Extract main commodities
+5. Characterize missing values: where are they missing (countries) and what vars are not very useful?
+6. Construct networks between countries and corporations weighted by subsidiaries?
