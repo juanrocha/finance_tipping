@@ -1,5 +1,9 @@
 library(tidyverse)
 
+url <- "https://stockholmuniversity.app.box.com/file/777762238977?s=8u6vl01c1efiwn7s4hv688o44e53nwdm"
+
+""
+
 df1 <- readxl::read_xlsx(
     path = "data/Drivers_Increasing_Risk_ED-2.xlsx",
     sheet = 1) %>% 
@@ -11,22 +15,27 @@ df2 <- readxl::read_xlsx(
     na = "n.d") %>% 
     janitor::clean_names()
 
+
+
+
 df1 %>% skimr::skim()
 
-df1 %>%
+df2 %>%
     ggplot(aes(country)) + 
     geom_bar() +
     coord_flip()
     
-df1 %>%
+df2 %>%
     filter(country == "USA") %>% 
     pull(driver_of_change) %>% 
     unique()
 
-df2 %>% # how far is it coded
+df1 %>% # how far is it coded
     filter(!is.na(access_date)) %>% 
     skimr::skim()
 
+
+df1 %>% skimr::skim()
 ## Fix missing values
 df2 <- df2 %>% 
     mutate(

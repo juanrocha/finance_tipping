@@ -1,0 +1,203 @@
+---
+title: "Exploring companies data"
+author: "Juan Rocha"
+date: "21-03-10"
+output: 
+  html_notebook:
+    code_folding: hide
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(plotly)
+library(patchwork)
+
+theme_set(theme_light())
+```
+
+Import data:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+df1 <- readxl::read_xlsx(
+    path = "data/Drivers_Increasing_Risk_ED-2.xlsx",
+    sheet = 1,
+    na = "NA") %>% 
+    janitor::clean_names()
+
+df2 <- readxl::read_xlsx(
+    path = "data/Drivers_Increasing_Risk_ED-2.xlsx",
+    sheet = 2, 
+    na = "NA") %>% 
+    janitor::clean_names()
+```
+
+Currently the dataset has `r df1 %>% nrow()` companies, in `r df1$country %>% unique() %>% length()` countires, dealing with `r df1$commodity %>% unique() %>% length()` commodities (including `NA`).
+
+The top countries are:
+```{r}
+g1 <- df1 %>%
+    group_by(country) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    ggplot(aes(count)) +
+    geom_density() +
+    geom_vline(xintercept = 20, color = "orange") +
+    labs(title = "Companies per country") +
+    theme_light(base_size = 8)
+
+g2 <- df1 %>%
+    group_by(country) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    filter(count > 20) %>% 
+    mutate(country = as_factor(country) %>% fct_reorder(count)) %>% 
+    ggplot(aes(country, count)) +
+    geom_col() +
+    coord_flip() +
+    labs(title = "Country")+
+    theme_light(base_size = 8)
+
+g3 <- df1 %>%
+    group_by(origin) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    filter(count > 20) %>% 
+    mutate(origin = as_factor(origin) %>% fct_reorder(count)) %>% 
+    ggplot(aes(origin, count)) +
+    geom_col() +
+    coord_flip() +
+    labs(title = "Origin")+
+    theme_light(base_size = 8)
+
+g1 + g2 + g3
+```
+
+Top companies are:
+
+```{r}
+g1 <- df1 %>%
+    group_by(company) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    ggplot(aes(count)) +
+    geom_density() +
+    geom_vline(xintercept = 10, color = "orange") 
+
+g2 <- df1 %>%
+    group_by(company) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    filter(count > 10) %>% 
+    mutate(company = as_factor(company) %>% fct_reorder(count)) %>% 
+    ggplot(aes(company, count)) +
+    geom_col() +
+    coord_flip() +
+    theme(axis.text.y = element_text(size = 6))
+
+g2 + inset_element(g1, left = 0.25, bottom = 0.05, right = 0.95, top = 0.65)
+
+
+```
+
+And the most importat commodities:
+
+```{r}
+g1 <- df1 %>%
+    group_by(commodity) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    ggplot(aes(count)) +
+    geom_density() +
+    geom_vline(xintercept = 30, color = "orange") 
+
+g2 <- df1 %>%
+    group_by(commodity) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    filter(count > 0) %>% 
+    mutate(commodity = as_factor(commodity) %>% fct_reorder(count)) %>% 
+    ggplot(aes(commodity, count)) +
+    geom_col() +
+    geom_hline(yintercept = 30, color = "orange") +
+    coord_flip() +
+    theme(axis.text.y = element_text(size = 6))
+
+g2 + inset_element(g1, left = 0.25, bottom = 0.05, right = 0.95, top = 0.65)
+```
+
+Note that for commodities going for the big numbers might not be wise. Many zoonotic diseases are related to animal exploitation (pork, pigs, lamb) which might not be as big when compare to other commodities, but are more prone to diseases that can jump to humans.
+
+```{r}
+df1 %>%
+    group_by(commodity) %>% 
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>% 
+    filter(count > 0) %>% 
+    mutate(commodity = as_factor(commodity) %>% fct_reorder(count)) %>% 
+    ggplot(aes(commodity, count)) +
+    geom_col() +
+    geom_hline(yintercept = 30, color = "orange") +
+    coord_flip() + 
+    facet_wrap()
+    theme(axis.text.y = element_text(size = 6))
+    
+```
+
+
+## Networks
+
+Here are some ideas for further analysis:
+
+1. Bipartite network of countries and companies
+    - One mode network of countries connected by number of companies
+    - One mode network of companies who operate on the same countries
+    - Can one figure out cooperation / competition for resources?
+2. For a selection of countries we could zoom into subnational networks (e.g. USA)
+3. Shareholder - Conglomerate - Company - Subsidiaries | Which layers are relevant for our question? Bear in mind the missing values:
+
+```{r}
+df1 %>% 
+    select(1:4) %>% 
+    skimr::skim()
+```
+
+```{r}
+df1 %>% 
+    select(company, origin, country) %>% 
+    group_by(origin, country) %>% 
+    unique() %>% 
+    summarize(companies = n()) %>% 
+    ggplot(aes(origin, country)) +
+    geom_tile(aes(fill = companies)) +
+    scale_fill_viridis_c() +
+    theme_light(base_size = 6) +
+    theme(axis.text.x = element_text(angle = 90)) 
+
+```
+Hard to read, maybe better on table form:
+
+```{r}
+df1 %>% 
+    select(company, origin, country) %>% 
+    group_by(origin, country) %>% unique() %>% 
+    summarize(companies = n()) %>% 
+    arrange(desc(companies))
+```
+
+
+### Errors
+
+- `DriversED` rows 102 onwards have shifted column order for columns L, M. Needs to be corrected to be able to do network analysis
+- There are typos on countries names e.g. Brazil and Brasil
+
+```{r}
+df1 %>% 
+    filter(company == "NESTLE S.A.")
+```
+

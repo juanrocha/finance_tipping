@@ -1,0 +1,162 @@
+---
+title: "Exploring FAO stats"
+author: "Juan Rocha"
+date: "2/21/2021"
+output: 
+  html_notebook:
+    toc: false
+    code_folding: hide
+  html_document:
+    toc: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+This notebook is based on the script draft `99-data_exploration.R`. The central question of this preliminary analysis is: **how do we prioritize areas of the world and which commodities to further focus our analysis?**
+
+```{r}
+library(tidyverse)
+library(plotly)
+```
+
+
+## Import data
+
+```{r}
+## FAO data on crops
+file <- "~/Documents/Projects/DATA/FAOSTAT/CommodityBalances_Crops_E_All_Data_(Normalized).csv"
+
+dat <- read_csv(file) %>% 
+  janitor::clean_names()
+```
+
+Some summary stats:
+```{r}
+## descriptive 
+skimr::skim(data = dat)
+```
+
+FAOStats has production data for `r dat %>% pull(area) %>% unique() %>% length()` areas, of which 182 are countries. It keeps track of `r dat %>% pull(item) %>% unique() %>% length()` agricultural commodities (excluding animals). For every country, year and commodity, it keeps record of: _`r dat %>% pull(element) %>% unique() `_. This dataset has three flags (you can read more [here](http://www.fao.org/faostat/en/#definitions)): 
+
+- S: stanrdardized data
+- SA: Aggregate, may include official, semi-official, estimated or calculated data
+- SD: statistical discrepancy
+
+The commodities available are:
+
+```{r}
+dat %>% select(item) %>% unique()
+```
+
+In order to prioritize areas of the world and commodities to focus our analysis, we need to know:
+
+1. If the emergence of zoonotic diseases is driven by deforestation and land cover change (Allen 2017), then we need to figure out where has those rates being higher. The EU Copernicus Land use data can be of use (30m resolution, 10+ years), but one needs to be careful on how it is calculated -- e.g. % versus area; and it's computationally expensive.
+2. Alternatively, without land cover data, one can use FAOStats to investigate which commodities have increased production faster, and what proportion of that production is dedicated to the international market. As such, one can identify places where international coorportations might have played an important role in that agricultural expantion (in production, not area).
+3. The ratio of exports / production can inform us how much export oriented has a country become (per commodity). Note that production can increase because there is more population to feed, so one probably calculate per capita values to account for increase of internal demand. Then we need 
+
+### Example
+
+Let's look at Colombia's coffee production:
+
+```{r}
+dat %>% 
+  select(-element_code, -year_code, -flag) %>% 
+  filter(area == "Colombia") %>% 
+  filter(item == "Coffee and products") %>% 
+  pivot_wider(names_from = element, values_from = value) %>%
+  mutate(
+    total = `Domestic supply quantity` + `Export Quantity`,
+    total2 = total - `Stock Variation` - `Import Quantity`,
+    differ = total2 - Production
+  ) %>%
+  pivot_longer(cols = Production:differ, names_to = "element", values_to = "value") %>%
+  # filter(element != "total") %>%
+  #group_by(item, year) %>% 
+  ggplot(aes(year, value)) +
+  geom_line(aes(group = element, color = element)) +
+  scale_y_continuous(labels = scales::label_scientific()) +
+  facet_wrap(~element) +
+  theme_light(base_size = 8)
+```
+
+The variables that start on capital letters are the original from the data, the ones with small caps are variables I re-calculated to understand what they mean. Roughly speaking, `Production` is equal to `Domestic supply quantity` + `Export Quantity` - `Stock Variation` - `Import Quantity`. Thus, there are a few options for the ratio that indicates whether a country produces mainly for the international market or for domestic consumption:
+
+- **Exports / Production**: Would be the % of production that is exported. The problem is if production is zero (errors in the data). If no errors, it should always be a number between 0-1.
+- **Exports / Domestic**: This is a true ratio, if > 1 it means the country is export oriented, if < 1 domestic oriented. The amount of what is exported does not matter, only relative to what is domestically consumed. 
+
+Note that both production and domestic can be increasing simply because population and hence domestic demand is growing. But if that's true, it is already accounted for in the denominator. Dividing by population in the numerator and denominator would render the same ratio, so it's unnecessary.
+
+Let's calculated in the full dataset:
+
+```{r}
+dat %>% 
+  ggplot(aes(value)) +
+  geom_density() +
+  scale_x_log10() +
+  facet_wrap(~element, scales = "free") +
+  theme_light(base_size = 8)
+  
+```
+Notice that there will be some weird cases. Just by looking at the distributions (note on log scale!), there is the possibility of division by zero when a country exports but does not produce (e.g. all products comes from inports, some processing is done and then re-exported again), or when a country does not consume domestically. 
+
+```{r}
+# get list of countries
+countries <- dat %>% pull(area) %>% unique()
+
+
+ratios <- dat %>% 
+  select(-element_code, -year_code, -item_code, -unit) %>% 
+  filter(area %in% countries[1:182]) %>% 
+  pivot_wider(names_from = element, values_from = value) %>% 
+  # avoid divisions by zero:
+  filter(
+    !is.na(`Export Quantity`),  
+    Production != 0,
+    !is.na(`Domestic supply quantity`),
+    `Domestic supply quantity` != 0
+  ) %>%  # reduces the dataset from 1M obs to 0.5
+  group_by(year, area, item) %>% 
+  mutate(
+    export_ratio = `Export Quantity` / `Domestic supply quantity`,
+    export_prop = `Export Quantity` / Production
+  ) 
+```
+
+```{r}
+ratios_summary <- ratios %>% 
+  ungroup() %>% 
+  group_by(area,item) %>% 
+  summarize(
+    export_ratio = median(export_ratio, na.rm = TRUE),
+    export_prop = median(export_prop, na.rm = TRUE)
+  )
+
+ratios_summary %>% arrange(desc(export_ratio))
+```
+```{r}
+ratios_summary %>% arrange(desc(export_prop))
+```
+```{r fig.width=6, fig.height=7}
+keyvar <- sym("export_prop")
+
+g1 <- ratios_summary %>% ungroup() %>% 
+  filter(area %in% countries[1:182]) %>% 
+  filter(eval(keyvar) < 10 , eval(keyvar) > -0.1) %>% 
+  # group_by(area) %>% 
+  mutate(area = as_factor(area),
+         item = as_factor(item)) %>%
+  mutate(area = fct_reorder(area, .x = eval(keyvar), .fun = median, .desc = TRUE),
+         item = fct_reorder(item, .x = eval(keyvar), .fun = median, .desc = TRUE)) %>% 
+  ggplot(aes(item, area)) +
+  geom_tile(aes(fill = eval(keyvar))) +
+  scale_fill_gradient2("Stat", mid = "gray85", midpoint = 0) +
+  theme_light(base_size = 8) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "top")
+
+g1
+```
+
