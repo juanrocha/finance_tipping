@@ -1,0 +1,126 @@
+---
+title: "Networks of financial actors"
+author: "Juan Rocha"
+date: "6/10/2021"
+output: 
+  html_notebook:
+      theme:
+          code_font:
+            google: Fira Code
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+    echo = TRUE, message=FALSE, warning = FALSE, error = FALSE,
+    fig.width = 6, fig.height = 5, tidy = TRUE, dpi  = 300)
+```
+
+```{r}
+library(tidyverse)
+library(plotly)
+library(patchwork)
+library(network)
+
+theme_set(theme_light(base_size = 10))
+```
+
+Read data:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+df1 <- readxl::read_xlsx(
+    path = "data/Paulas_files/001-Drivers_Increasing_Risk_ED.xlsx",
+    sheet = 2,
+    na = "NA") %>% 
+    janitor::clean_names()
+
+```
+
+Currently the data set has `r df1 %>% nrow()` companies, in `r df1$country %>% unique() %>% length()` countries, dealing with `r df1$commodity %>% unique() %>% length()` commodities (including `NA`).
+
+The data is very incomplete with respect to country locations
+
+```{r}
+df1 %>% 
+    select(company, origin, country) %>% 
+    skimr::skim()
+```
+
+```{r}
+library(sna)
+net_countries <-  df1 %>% 
+    select(company, origin, country) %>% 
+    group_by(origin, country) %>% 
+    # unique() %>% 
+    count(name = "channel") %>% # a channel is acountry * commodities
+    filter(!is.na(origin), !is.na(country)) %>% 
+    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = FALSE)
+
+net_countries %v% "indegree" <- sna::degree(
+    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "indegree")
+net_countries %v% "outdegree" <- sna::degree(
+    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "outdegree")
+net_countries %v% "degree" <- sna::degree(net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE)
+
+gplot(
+    net_countries,
+    vertex.col = alpha("purple", 0.25),
+    label = network.vertex.names(net_countries),
+    label.cex = 0.5, label.col = "grey50",
+    vertex.border = 0, 
+    vertex.cex = sqrt(0.2 + net_countries %v% "outdegree"),
+    label.pos = 5,
+    edge.col = alpha("grey50", 0.1),
+    edge.lwd = log1p(net_countries %e% "channel"),
+    displayisolates = TRUE, pad = 0.5,
+    mode = "mds"
+    )
+
+# networkD3::simpleNetwork(
+#     df1 %>%
+#         select(company, origin, country) %>%
+#         group_by(origin, country) %>%
+#         # unique() %>%
+#         count(name = "channel") %>% 
+#         filter(!is.na(origin), !is.na(country)) ,
+#     Source = "origin", Target = "country", zoom = TRUE,
+#     linkColour = "grey", nodeColour = "blue")
+
+```
+Maybe fit a PCA to the data with network stats, commodities and so forth per country, and use the coordinates for visualization. Currently using a multi-dimensional scaling projection. Another way of "seeing" the network is by ranking which countries are the most influencial given their links to other countries (_outdegree_), once self-links are removed (companies whose country of origin and operation is the same):
+
+```{r}
+df1 %>% 
+    select(company, origin, country) %>% 
+    group_by(origin, country) %>% 
+    # unique() %>% 
+    count(name = "channel") %>% # a channel is acountry * commodities
+    filter(!is.na(origin), !is.na(country)) %>% 
+    filter(origin != country) %>% 
+    arrange(desc(channel))
+```
+
+The dataset has `r unique(df1$company) %>% length()` unique companies and `r unique(df1$commodity) %>% length()` commodities. Below a table that summarizes in how many different places the same company extract the same resource:
+
+```{r}
+df1 %>% 
+    select(company, commodity) %>% 
+    group_by(company, commodity) %>% 
+    count(name = "geographies") %>% 
+    arrange(desc(geographies))
+```
+
+
+
+```{r}
+df1 %>% 
+    select(company, commodity) %>% 
+    group_by(company, commodity) %>% 
+    count(name = "geographies") %>% 
+    arrange(desc(geographies)) %>% 
+    ggplot(aes(company, commodity)) +
+    geom_tile(aes(fill = geographies)) +
+    scale_fill_viridis_c() +
+    theme_light(base_size = 6) +
+    theme(axis.text.x = element_text(angle = 90)) 
+```
+

@@ -201,3 +201,10 @@ df1 %>%
     filter(company == "NESTLE S.A.")
 ```
 
+## Ideas to explore:
+
+- Hotspots of interest within countries
+- Commodities within the hotspots driven by land use (high priority cases)
+- Explore Allen data and see if one can make linkages to specific diseases
+- One can use risk areas to link companies -> hotspots -> disease risk
+- Once a subset of companies is identified, go up to shareholders: which ones are more exposed?
