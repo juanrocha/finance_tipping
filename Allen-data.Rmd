@@ -1,0 +1,29 @@
+---
+title: "Allen data"
+author: "Juan Rocha"
+date: "8/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+
+The purpose of this script is to extract the locations of the map produced in Allen et al, match with a suitable subnational political division and use the polygon to approximate location of companies within countries.
+
+```{r}
+# Allen data
+# dat <- readxl::read_xlsx(
+#     path = "~/Documents/Projects/DATA/Allen_2005_DataMaps_Unprojected/0_Metadata_MOESM4_ESM.xlsx",
+#     sheet = 1, skip = 1
+# )
+```
+
+I did it on a separate script `disease_spots.R` the resulting figure is:
+
+![Fig 1. Allen raw data](figures/Allen_data.png)
+
+The scale at which the observations are coded make it difficult to join with the company data. As the map shows, some diseases were recorded in very specific areas, below the 2nd level admin unit. Others are at the level of states or subnational political units. But most of them are actually country scale. It probably means we need to do the network reconstruction based on country data, and zoom in into second level admin unit for only a few countries (e.g. USA, China, Brazil).
