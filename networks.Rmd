@@ -1,7 +1,7 @@
 ---
 title: "Networks of financial actors"
 author: "Juan Rocha"
-date: "6/10/2021"
+date: "Last update `r Sys.Date()`"
 output: 
   html_notebook:
       theme:
@@ -20,6 +20,7 @@ library(tidyverse)
 library(plotly)
 library(patchwork)
 library(network)
+library(sna)
 
 theme_set(theme_light(base_size = 10))
 ```
@@ -35,9 +36,7 @@ df1 <- readxl::read_xlsx(
 
 ```
 
-Currently the data set has `r df1 %>% nrow()` companies, in `r df1$country %>% unique() %>% length()` countries, dealing with `r df1$commodity %>% unique() %>% length()` commodities (including `NA`).
-
-The data is very incomplete with respect to country locations
+Currently the data set has `r df1 %>% nrow()` companies, in `r df1$country %>% unique() %>% length()` countries, dealing with `r df1$commodity %>% unique() %>% length()` commodities (including `NA`). Below some overview of the missing values:
 
 ```{r}
 df1 %>% 
@@ -46,14 +45,14 @@ df1 %>%
 ```
 
 ```{r}
-library(sna)
+
 net_countries <-  df1 %>% 
     select(company, origin, country) %>% 
     group_by(origin, country) %>% 
     # unique() %>% 
     count(name = "channel") %>% # a channel is acountry * commodities
     filter(!is.na(origin), !is.na(country)) %>% 
-    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = FALSE)
+    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = TRUE)
 
 net_countries %v% "indegree" <- sna::degree(
     net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "indegree")
@@ -93,7 +92,7 @@ df1 %>%
     select(company, origin, country) %>% 
     group_by(origin, country) %>% 
     # unique() %>% 
-    count(name = "channel") %>% # a channel is acountry * commodities
+    count(name = "channel") %>% # a channel is a country * commodities
     filter(!is.na(origin), !is.na(country)) %>% 
     filter(origin != country) %>% 
     arrange(desc(channel))
@@ -111,16 +110,74 @@ df1 %>%
 
 
 
+```{r fig.width = 6, fig.height = 5}
+df1 %>% 
+  select(company, commodity) %>% 
+  group_by(company, commodity) %>% 
+  count(name = "geographies") %>% 
+  arrange(desc(geographies)) %>% 
+  filter(geographies > 3) %>%  ungroup() %>% 
+  mutate(company = as_factor(company)) %>%
+  ## the data needs to be ungrouped for fct_reorder to work!
+  mutate(company = fct_reorder(
+    .f = company, .x = geographies, .fun = sum, .desc = FALSE)) %>% 
+  #pull(company) %>% levels()
+  ggplot(aes(y = company)) +
+  geom_bar(aes(weight = geographies, fill = commodity),
+           position = "stack", show.legend = TRUE, alpha = 0.5) +
+  scale_fill_discrete(
+    "Commodities", guide = guide_legend(
+      ncol = 4, title.position = "top", title.hjust = 0.5,
+      keywidth = 0.5, keyheight = 0.5
+    )
+  ) +
+  labs(title = "Companies ranking by number of countries and commodities",
+       subtitle = "A geography is a combination of `country * commodity` as a proxy of geographical influence of a company.\nOnly companies with >3 geographies are shown", caption = "Data curated by the project, source Orbis database", x = "Geographies", y = "Top companies") +
+  theme_light(base_size = 10) + theme(legend.position = c(0.7, 0.1))
+
+```
+
+Note there is a relatively low diversity of specialization within companies, meaning that a lot of them are putting their eggs on the same basket. 
+
+Another key network representation is by companies given the countries where they together operate, and by the common geographies (meaning exporting the same commodity from the same country).
+
 ```{r}
 df1 %>% 
-    select(company, commodity) %>% 
-    group_by(company, commodity) %>% 
-    count(name = "geographies") %>% 
-    arrange(desc(geographies)) %>% 
-    ggplot(aes(company, commodity)) +
-    geom_tile(aes(fill = geographies)) +
-    scale_fill_viridis_c() +
-    theme_light(base_size = 6) +
-    theme(axis.text.x = element_text(angle = 90)) 
+  select(company, origin, country) %>% 
+  group_by(origin, company) %>% 
+  # Assumption: if country is NA, it means the company operates in its country of origin:
+  mutate(country = case_when(is.na(country) ~ origin, !is.na(country) ~ country)) %>% 
+  # unique() %>% 
+  count(name = "channel") %>% # a channel is acountry * commodities
+  ungroup() %>%
+  pivot_wider(values_from = geographies, names_from = companies, values_fill = 0)
+ 
+  
+  
+  
+  
+   # filter(!is.na(origin), !is.na(company)) %>% 
+  network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = TRUE)
+
+net_companies %v% "indegree" <- sna::degree(
+    net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "indegree")
+net_companies %v% "outdegree" <- sna::degree(
+    net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "outdegree")
+net_companies %v% "degree" <- sna::degree(net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE)
+
+gplot(
+    net_companies,
+    vertex.col = alpha("orange", 0.25),
+    label = network.vertex.names(net_companies),
+    label.cex = 0.5, label.col = "grey50",
+    vertex.border = 0, 
+    vertex.cex = sqrt(0.2 + net_companies %v% "outdegree"),
+    label.pos = 5,
+    edge.col = alpha("grey50", 0.1),
+    edge.lwd = log1p(net_companies %e% "channel"),
+    displayisolates = TRUE, pad = 0.5,
+    mode = "mds"
+    )
+
 ```
 
