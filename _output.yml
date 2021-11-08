@@ -1,0 +1,35 @@
+html_notebook:
+    theme:
+        bootswatch: cosmo
+        code_font:
+            google: Fira Code
+    df_print: paged
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_control: true
+    toc_depth: 3
+    fig_caption: true
+    fig_width: 4
+    fig_height: 3.5
+    highlight: pygments
+    self_contained: true
+html_document:
+    theme:
+        bootswatch: cosmo
+        code_font:
+            google: Fira Code
+    df_print: paged
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_control: true
+    toc_depth: 3
+    fig_caption: true
+    fig_width: 4
+    fig_height: 3.5
+    highlight: pygments
+    self_contained: false
+    lib_dir: libs

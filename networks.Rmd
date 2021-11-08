@@ -2,20 +2,17 @@
 title: "Networks of financial actors"
 author: "Juan Rocha"
 date: "Last update `r Sys.Date()`"
-output: 
-  html_notebook:
-      theme:
-          code_font:
-            google: Fira Code
+
+output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
     echo = TRUE, message=FALSE, warning = FALSE, error = FALSE,
-    fig.width = 6, fig.height = 5, tidy = TRUE, dpi  = 300)
+    fig.width = 6, fig.height = 5, tidy = TRUE)
 ```
 
-```{r}
+```{r message = FALSE, warning = FALSE, error = FALSE}
 library(tidyverse)
 library(plotly)
 library(patchwork)
@@ -25,7 +22,7 @@ library(sna)
 theme_set(theme_light(base_size = 10))
 ```
 
-Read data:
+## Read data
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 df1 <- readxl::read_xlsx(
@@ -44,27 +41,38 @@ df1 %>%
     skimr::skim()
 ```
 
+## Networks
+
+### Countries 
+
+Connected by companies and resource flow
+
 ```{r}
 
 net_countries <-  df1 %>% 
-    select(company, origin, country) %>% 
-    group_by(origin, country) %>% 
-    # unique() %>% 
-    count(name = "channel") %>% # a channel is acountry * commodities
-    filter(!is.na(origin), !is.na(country)) %>% 
-    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = TRUE)
+  select(company, origin, country) %>% 
+  group_by(origin, country) %>% 
+  # unique() %>% 
+  count(name = "channel") %>% # a channel is a country * commodities
+  filter(!is.na(origin), !is.na(country)) %>% 
+  network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = TRUE)
 
 net_countries %v% "indegree" <- sna::degree(
-    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "indegree")
+  net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, 
+  cmode = "indegree")
+
 net_countries %v% "outdegree" <- sna::degree(
-    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "outdegree")
-net_countries %v% "degree" <- sna::degree(net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE)
+    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, 
+    cmode = "outdegree")
+
+net_countries %v% "degree" <- sna::degree(
+  net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE)
 
 gplot(
     net_countries,
     vertex.col = alpha("purple", 0.25),
     label = network.vertex.names(net_countries),
-    label.cex = 0.5, label.col = "grey50",
+    label.cex = 0.75, label.col = "grey50",
     vertex.border = 0, 
     vertex.cex = sqrt(0.2 + net_countries %v% "outdegree"),
     label.pos = 5,
@@ -74,6 +82,11 @@ gplot(
     mode = "mds"
     )
 
+
+```
+
+```{r include = FALSE}
+# Alternative visualizations:
 # networkD3::simpleNetwork(
 #     df1 %>%
 #         select(company, origin, country) %>%
@@ -83,9 +96,37 @@ gplot(
 #         filter(!is.na(origin), !is.na(country)) ,
 #     Source = "origin", Target = "country", zoom = TRUE,
 #     linkColour = "grey", nodeColour = "blue")
+library(ggnetwork)
+
+g1 <- ggplot(ggnetwork(net_countries, arrow.gap = 0.01), 
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(
+        aes(color = channel), size = 0.15, alpha = .5,
+        arrow = arrow(length = unit(2, "pt"), type = "closed")) +
+    geom_nodes(aes(size = outdegree), color = "red", alpha = 0.4) +
+    geom_nodes(aes(size = indegree), color = "blue", alpha = 0.4) +
+    geom_nodetext(aes(label = vertex.names, size = degree/4)) +
+    scico::scale_color_scico(
+        "Channel", palette = "batlow", direction = -1,
+        guide = guide_colorbar(
+            barwidth = unit(3, "mm"), barheight = unit(1.5, "cm"))) +
+    scale_size(name = "Degree", range = c(1,2)) +
+    labs(title = "Network of countries connected by companies",
+         subtitle = "A channel is a company times commodities. Red nodes are influencers while blue are influenced per\nnumber of connections", caption = "Data source: Orbis database") +
+    theme_blank(base_size = 6) 
+# 
+# ggsave(
+#     filename = "figures/countries_net.png",
+#     plot = g1,
+#     device = "png",
+#     width = 4, height = 3,
+#     bg = "white"
+# )
 
 ```
-Maybe fit a PCA to the data with network stats, commodities and so forth per country, and use the coordinates for visualization. Currently using a multi-dimensional scaling projection. Another way of "seeing" the network is by ranking which countries are the most influencial given their links to other countries (_outdegree_), once self-links are removed (companies whose country of origin and operation is the same):
+
+
+Maybe fit a PCA to the data with network stats, commodities and so forth per country, and use the coordinates for visualization. Currently using a multi-dimensional scaling projection. Another way of "seeing" the network is by ranking which countries are the most influential given their links to other countries (_outdegree_), once self-links are removed (companies whose country of origin and operation is the same):
 
 ```{r}
 df1 %>% 
@@ -111,7 +152,7 @@ df1 %>%
 
 
 ```{r fig.width = 6, fig.height = 5}
-df1 %>% 
+g2 <- df1 %>% 
   select(company, commodity) %>% 
   group_by(company, commodity) %>% 
   count(name = "geographies") %>% 
@@ -133,51 +174,239 @@ df1 %>%
   ) +
   labs(title = "Companies ranking by number of countries and commodities",
        subtitle = "A geography is a combination of `country * commodity` as a proxy of geographical influence of a company.\nOnly companies with >3 geographies are shown", caption = "Data curated by the project, source Orbis database", x = "Geographies", y = "Top companies") +
-  theme_light(base_size = 10) + theme(legend.position = c(0.7, 0.1))
+  theme_light(base_size = 5) + theme(legend.position = c(0.7, 0.1))
 
+
+# ggsave(
+#     filename = "figures/companies_commodity.png",
+#     plot = g2,
+#     device = "png",
+#     width = 6, height = 5,
+#     bg = "white"
+# )
+
+g2
 ```
 
-Note there is a relatively low diversity of specialization within companies, meaning that a lot of them are putting their eggs on the same basket. 
+Note there is a relatively low diversity of specialization within companies, meaning that a lot of them are putting their eggs on the same basket. This is not surprising. The knowledge and know-how of a company is limited and can only produce a set of products that are themselves similar in terms of the tech, knowledge and institutions.
+
+### Companies 
+
+Companies connected by shared countries*resources.
 
 Another key network representation is by companies given the countries where they together operate, and by the common geographies (meaning exporting the same commodity from the same country).
 
 ```{r}
-df1 %>% 
+bip_net <- df1 %>% 
   select(company, origin, country) %>% 
-  group_by(origin, company) %>% 
-  # Assumption: if country is NA, it means the company operates in its country of origin:
-  mutate(country = case_when(is.na(country) ~ origin, !is.na(country) ~ country)) %>% 
-  # unique() %>% 
-  count(name = "channel") %>% # a channel is acountry * commodities
-  ungroup() %>%
-  pivot_wider(values_from = geographies, names_from = companies, values_fill = 0)
+  # Assumption: if country is NA, it means the company operates in
+  #  its country of origin:
+  mutate(country = case_when(
+    is.na(country) ~ origin, !is.na(country) ~ country))  %>% 
+  group_by(company, country) %>% 
+  # a channel can be either different commodities, or different places within the same country
+  count(name = "channel") %>% 
+  ungroup() |> 
+  network(
+    directed = TRUE, bipartite = TRUE, matrix.type = "edgelist", 
+    ignore.eval=FALSE, loops = FALSE)
  
-  
-  
-  
-  
-   # filter(!is.na(origin), !is.na(company)) %>% 
-  network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", ignore.eval=FALSE, loops = TRUE)
+bip_mat <- bip_net |> 
+  as.matrix.network.adjacency()
+```
 
-net_companies %v% "indegree" <- sna::degree(
-    net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "indegree")
+The bipartite matrix has `r dim(bip_mat)[1]` companies and `r dim(bip_mat)[2]` countries.
+
+```{r}
+net_comp <- network(
+  bip_mat %*% t(bip_mat), 
+  directed = FALSE)
+
+net_comp %v% "degree" <- sna::degree(
+  net_comp, gmode = "graph", rescale = FALSE)
+net_comp %v% "betw" <- sna::betweenness(
+  net_comp, gmode = "graph", rescale = TRUE)
+
+df_comps <- tibble(
+  companies = network.vertex.names(net_comp),
+  degree = net_comp %v% "degree",
+  betweenness = net_comp %v% "betw"
+)
+
+df_comps |> 
+  arrange(desc(degree))
+```
+
+```{r fig.cap="Network of companies working on the same countries regardless of commodity. Isolates has been excluded"}
+plot.network(
+  net_comp,
+  edge.col = alpha("grey50", 0.3),
+  edge.lwd = 0.1,
+  vertex.lty = 0,
+  vertex.cex = 0.2,
+  arrowhead.cex = 0.3,
+  displayisolates = FALSE)
+
+g3 <- ggplot(ggnetwork(net_comp, arrow.gap = 0.01),
+    aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(color = "grey40", size = 0.15, alpha = .5,
+        arrow = arrow(length = unit(2, "pt"), type = "closed")) +
+    geom_nodes(aes(size = degree), color = "red", alpha = 0.4) +
+    geom_nodes(aes(size = betw), color = "blue", alpha = 0.4) +
+    #geom_nodetext(aes(label = vertex.names, size = degree/4)) +
+    scico::scale_color_scico(
+        "Channel", palette = "batlow", direction = -1,
+        guide = guide_colorbar(
+            barwidth = unit(3, "mm"), barheight = unit(1.5, "cm"))) +
+    scale_size(name = "Degree", range = c(1,5)) +
+    labs(title = "Network of companies",
+         subtitle = "Companies are connected if they share geographies", caption = "Data source: Orbis database") +
+    theme_blank(base_size = 6) 
+
+
+
+# ggsave(
+#     filename = "figures/companies_net.png",
+#     plot = g3,
+#     device = "png",
+#     width = 4, height = 3,
+#     bg = "white"
+# )
+```
+
+
+```{r}
+bip_net <- df1 %>% 
+  select(company, origin, country) %>% 
+  # Assumption: if country is NA, it means the company operates in
+  #  its country of origin:
+  mutate(country = case_when(
+    is.na(country) ~ origin, !is.na(country) ~ country))  %>% 
+  group_by(company, country) %>% 
+  # a channel can be either different commodities, or different places within the same country
+  count(name = "channel") %>% 
+  ungroup() |> 
+  network(
+    directed = TRUE, bipartite = TRUE, matrix.type = "edgelist", 
+    ignore.eval=FALSE, loops = FALSE)
+ 
+bip_mat <- bip_net |> 
+  as.matrix.network.adjacency()
+```
+
+### Financial actors
+
+Investors linked by investments on the same companies:
+
+```{r}
+fls <- list.files(path = "data/Paulas_files/Financial_actors/")
+fls <- paste0("data/Paulas_files/Financial_actors/", fls)
+head(fls)
+```
+
+```{r financial-actors}
+dat <- map(
+  fls,
+  function(x) {
+    x |> 
+      read_delim(
+        delim = ";", col_types = "cccccccccc", name_repair = "minimal",
+        col_names = c("company", "name", "pas", "type", "direct_percent", "total_percent", "source", "date", "op_revenue", "employees"),
+        skip = 1, na = c("n.d.", "-")) |> 
+    janitor::clean_names() }
+) 
+
+
+dat <- dat |> 
+  bind_rows() 
+  
+dat <- dat |> 
+  filter(company != "") |> # 2 empty rows
+  mutate(
+    company = str_to_title(company),
+    name = str_to_title(name),
+    total_percent = str_remove_all(total_percent, pattern = "±")
+  ) |> 
+  mutate(
+    total_percent = as.numeric(total_percent),
+    direct_percent = as.numeric(direct_percent), 
+    date = lubridate::my(date),
+    op_revenue = as.numeric(op_revenue),
+    employees = as.numeric(employees)
+  )
+  
+  
+  
+skimr::skim(dat)
+
+# save(dat, file = "data/investors_cleaned.RData")
+```
+
+The dataset contains `r dat |> pull(name) |> unique() |> length()` investors and `r dat |> pull(company) |> unique() |> length()` companies extracting resources in areas prone to the emergence of zoonotic dieseases. 
+
+```{r}
+# note there are companies that are investors in others, so it's not purely bipartite
+net_companies <- dat |> 
+  select(investors = name, company, total_percent) |> 
+  network(
+    directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
+    ignore.eval=FALSE, loops = FALSE)
+
 net_companies %v% "outdegree" <- sna::degree(
-    net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE, cmode = "outdegree")
-net_companies %v% "degree" <- sna::degree(net_companies, gmode = "digraph", diag = TRUE, rescale = FALSE)
+    net_countries, gmode = "digraph", diag = TRUE, rescale = FALSE, 
+    cmode = "outdegree")
+```
 
-gplot(
-    net_companies,
-    vertex.col = alpha("orange", 0.25),
-    label = network.vertex.names(net_companies),
-    label.cex = 0.5, label.col = "grey50",
-    vertex.border = 0, 
-    vertex.cex = sqrt(0.2 + net_companies %v% "outdegree"),
-    label.pos = 5,
-    edge.col = alpha("grey50", 0.1),
-    edge.lwd = log1p(net_companies %e% "channel"),
-    displayisolates = TRUE, pad = 0.5,
-    mode = "mds"
-    )
+```{r}
+plot.network(
+  net_companies,
+  edge.col = alpha("grey50", 0.3),
+  edge.lwd = 0.1,
+  vertex.lty = 0,
+  vertex.cex = 0.2,
+  arrowhead.cex = 0.3
+  )
 
+g4 <- ggplot(ggnetwork(net_companies, arrow.gap = 0.01),
+    aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(color = "grey40", size = 0.15, alpha = .5,
+        arrow = arrow(length = unit(2, "pt"), type = "closed")) +
+    geom_nodes(aes(size = outdegree), color = "orange", alpha = 0.4) +
+    #geom_nodes(aes(size = betw), color = "blue", alpha = 0.4) +
+    #geom_nodetext(aes(label = vertex.names, size = degree/4)) +
+    # scico::scale_color_scico(
+    #     "Channel", palette = "batlow", direction = -1,
+    #     guide = guide_colorbar(
+    #         barwidth = unit(3, "mm"), barheight = unit(1.5, "cm"))) +
+    scale_size(name = "Outdegree", range = c(0.2,4)) +
+    labs(title = "Network of shareholders",
+         subtitle = "Shareholders are connected if they have shares on the same companies", caption = "Data source: Orbis database") +
+    theme_blank(base_size = 6) 
+
+# ggsave(
+#     filename = "figures/shareholders_net.png",
+#     plot = g4,
+#     device = "png",
+#     width = 4, height = 3,
+#     bg = "white"
+# )
+```
+
+```{r}
+out_df <- tibble(
+  actor = network.vertex.names(net_companies),
+  outdegree = net_companies %v% "outdegree"
+)
+
+out_df |> 
+  ggplot(aes(outdegree)) +
+  geom_density()
+```
+
+There is a few investors with a disproportionate number of investments in the network.
+
+```{r}
+out_df |> 
+  arrange(desc(outdegree))
 ```
 
