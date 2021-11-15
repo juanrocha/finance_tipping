@@ -5,6 +5,7 @@
 library(tidyverse)
 library(fs)
 library(here)
+library(patchwork)
 
 # The cleaning replicates code from the networks.Rmd file:
 fls <- dir_ls(path = "data/Paulas_files/Financial_actors/")
@@ -200,3 +201,56 @@ dat |>
 
 
 # save(dat, file = "data/investors_cleaned.RData")
+
+### Visualizations
+load("data/investors_cleaned.RData")
+
+dat |> ggplot(aes(holdings)) + geom_density()
+
+dat <- dat |>
+    mutate(holdings = ownership * 0.2)
+
+g1 <- dat |> 
+    group_by(guo_final) |> 
+    summarise(companies = n()) |> 
+    arrange(desc(companies)) |> 
+    top_n(10) |> 
+    mutate(guo_final = as_factor(guo_final) |> 
+               fct_reorder( companies, sort)) |> 
+    ggplot(aes(companies, guo_final)) +
+    geom_col() +
+    labs(title = "", x = "Number of companies", y ="Global Unique Owner") +
+    theme_light(base_size = 10)
+
+g2 <- dat |> 
+    group_by(guo_final) |> 
+    summarise(holdings = sum(holdings)) |>  
+    arrange(desc(holdings)) |> 
+    top_n(10) |> 
+    mutate(guo_final = as_factor(guo_final) |> 
+               fct_reorder( holdings, sort)) |> 
+    ggplot(aes(holdings, guo_final)) +
+    geom_col() +
+    labs(title = "", x = "Number of holdings", y ="")+
+    theme_light(base_size = 10)
+
+# g3 <- df3 |> 
+#     arrange(desc(size_ownership)) |> 
+#     top_n(10) |> 
+#     mutate(guo_final = as_factor(guo_final) |> 
+#                fct_reorder( size_ownership, sort)) |> 
+#     ggplot(aes(size_ownership, guo_final)) +
+#     geom_col() +
+#     labs(title = "", x = "Millions of dollars", y ="")+
+#     theme_light(base_size = 7)
+
+g1 + g2 
+
+ggsave(
+    filename = "top_shareholders.png",
+    plot = (g1 +g2),
+    device = "png",
+    path = "figures/",
+    width = 8, height = 3,
+    bg = "white", dpi = 400
+)

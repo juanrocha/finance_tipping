@@ -265,4 +265,3 @@ Be aware of missing values on the contry column.
 - One can use risk areas to link companies -> hotspots -> disease risk
 - Once a subset of companies is identified, go up to shareholders: which ones are more exposed? [tripartite networks]
 
-

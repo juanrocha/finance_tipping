@@ -8,7 +8,13 @@ To-do list:
 
 1. Compute the import / export ratio per country
 2. Same at commodity level: are there commodities that are purely trade driven?
-3. Explore Paula's file: rank countries per number of companies on high risk
-4. Extract main commodities
+3. ~~Explore Paula's file: rank countries per number of companies on high risk~~
+4. ~~Extract main commodities~~
 5. Characterize missing values: where are they missing (countries) and what vars are not very useful?
-6. Construct networks between countries and corporations weighted by subsidiaries?
+6. ~~Construct networks between countries and corporations weighted by subsidiaries?~~
+
+Exponential random graph models:
+- Include world governance indicators
+- Inequality
+- Triangles? Feedforward triangles -> theory on instability?
+- Valued ergm with number of companes count on link weight?
