@@ -8,7 +8,7 @@ library(tidyverse)
 
 
 companies  <- read.csv("data/Paulas_files/002-PublicCompanies.csv", header = TRUE, sep = ";")
-|> unique.shareholders <- read.csv("data/Paulas_files/003-list_shareholders_v2.csv", header = TRUE, sep = ";", fileEncoding = "latin1")
+unique.shareholders <- read.csv("data/Paulas_files/003-list_shareholders_v2.csv", header = TRUE, sep = ";", fileEncoding = "latin1")
 
 companies <- companies %>%  filter(Type == "Public")
 
