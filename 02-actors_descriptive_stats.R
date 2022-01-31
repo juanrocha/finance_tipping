@@ -206,7 +206,6 @@ dat |>
 load("data/investors_cleaned.RData")
 
 dat |> ggplot(aes(holdings)) + geom_density()
-
 dat <- dat |>
     mutate(holdings = ownership * 0.2)
 

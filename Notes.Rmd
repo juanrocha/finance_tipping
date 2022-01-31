@@ -18,3 +18,6 @@ Exponential random graph models:
 - Inequality
 - Triangles? Feedforward triangles -> theory on instability?
 - Valued ergm with number of companes count on link weight?
+- Create network of investors combined for all cases
+- Create investor - country (where investors are based)
+- The later two should provide descriptive stats.

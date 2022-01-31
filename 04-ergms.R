@@ -22,7 +22,7 @@ library(patchwork)
 #alternatively: it contains the case study column needed for spliting.
 load("data/casestudies.RData")
 
-#### Network of countries ###
+#### Network of countries ####
 # This first analysis merge all commodities into "geographies". Subsequent analysis 
 # could separate by commodity and see if it holds
 # Exclude nodes that are not countries:
