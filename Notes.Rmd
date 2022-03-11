@@ -21,3 +21,5 @@ Exponential random graph models:
 - Create network of investors combined for all cases
 - Create investor - country (where investors are based)
 - The later two should provide descriptive stats.
+
+Experiment with the HH-Index: https://en.wikipedia.org/wiki/Herfindahl–Hirschman_index

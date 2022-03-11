@@ -64,9 +64,10 @@ skimr::skim(dat)
 
 ## load the unique shareholders list: it was curated manually by Paula and Alice
 shareholders <- read_csv2(
-    file = "data/Paulas_files/003-list_shareholders_v2.csv", 
+    file = "data/Paulas_files/003-list_shareholders.csv", 
     locale = locale(encoding = "latin1")) |> 
-    janitor::clean_names()
+    janitor::clean_names() |> 
+    select(shareholder:guo_final)
 
 # shareholders <- shareholders |> 
 #     mutate(across(everything(), str_to_title))
@@ -125,8 +126,8 @@ dat <- dat |> mutate(
     )
 ) 
 
-dat |> filter(is.na(guo_orbis))
-
+dat |> filter(is.na(guo_orbis)) |> select(-c(source:employees))
+dat |> filter(is.na(guo_final)) |> select(-c(source:employees))
 #### J211010: This dataset still has some names that correspond to private persons, 
 #### not public companies. There were errors on Paula's list of GUOs, I corrected 
 #### them manually with the look up table: 003-list_shareholders_v2
@@ -146,7 +147,7 @@ dat |>
     add_count() |> 
     filter(n > 1) |> 
     arrange(desc(shareholder)) |> 
-    print(n = 34) 
+    print(n = 45) 
     
 
 dat <- dat |> 
@@ -158,30 +159,33 @@ dat <- dat |>
     mutate(ownership = pmax(direct_percent, total_percent, na.rm = TRUE),
            is_max = (ownership == max(ownership, na.rm = TRUE)))
 
-dat |> filter(count >1) |>arrange(desc(shareholder)) |> print(n = 34)
+dat |> filter(count >1) |>arrange(desc(shareholder)) |> print(n = 45)
 dat |> filter(count == 1, is.na(is_max)) # there is 298 records with no ownership (NA in direct and total %)
 
 dat <- dat |> 
-    filter(is_max == TRUE) # reduces the dataset to 3805 obs
+    filter(is_max == TRUE) # reduces the dataset to 5683obs
 
 ## Still errors: why? the final guo is also reported as shareholder, so double counted
 dat |> 
     ungroup() |> 
     group_by(company, guo_final) |> 
     summarize(total_own = sum(ownership)) |> 
-    arrange(desc(total_own))
+    arrange(desc(total_own)) |> 
+    print(n=10)
 
 ## the two problematic cases:
 dat |> filter(company == "Bio Pappel S.a.b") ## It seems that it double counts when accounting for individual persons
-dat |> filter(company == "Th Plantations Berhad") |> 
-    arrange(guo_final) |> print(n=32) ## It seems there was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.
+dat |> filter(company == "Th Plantations Berhad") |> #print(n=32)
+    filter(direct_percent> 70 | total_percent > 70) |> 
+    select(shareholder) ## It seem32)here was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.
 
 ## Solution: filter out the strange cases
 dat <- dat |> 
     ungroup() |> 
-    filter(company != "Bio Pappel S.a.b" | type != "I") |> # get's rid of the idividual
-    filter(company != "Th Plantations Berhad" | date == "2020-06-01")
-## Reduces the dataset to 3774 observations
+    filter(company != "Bio Pappel S.a.b" | type != "I") |> # get's rid of the individual
+    # Lembaga Tabung Haji is a bank that owned >70% of the company that a year later is owned on similar % by the Government of Malasya. It get rid of two obs
+    filter(company != "Th Plantations Berhad" | shareholder != "Lembaga Tabung Haji") 
+## Reduces the data set to 3825 observations
 ## And the test is passed
 dat |> 
     ungroup() |> 
@@ -192,46 +196,54 @@ dat |>
 ## So there is still double values when the guo_final is duplicated, but that is because the 
 ## ownership is through different intermediaries (shareholders in the group_by).
 dat |> 
-    select(-count, -is_max) |> 
+    select(-count, -is_max, -op_revenue, -employees, -type, -source) |> 
     ungroup() |> 
     group_by(company, shareholder, guo_final) |> 
     add_count(name = "count") |> 
-    filter(count > 1)
+    filter(count > 1) 
 
+## remove duplicated entries:
+dat <- dat |> unique()
 
+## remove individual persons from the analysis
+dat <- dat |> filter(type != "I")
 
 # save(dat, file = "data/investors_cleaned.RData")
 
 ### Visualizations
 load("data/investors_cleaned.RData")
 
-dat |> ggplot(aes(holdings)) + geom_density()
 dat <- dat |>
-    mutate(holdings = ownership * 0.2)
+    mutate(holdings = ownership * 0.05)
+
+dat |> 
+    ggplot(aes(holdings)) + 
+    geom_density() +
+    scale_x_log10()
 
 g1 <- dat |> 
     group_by(guo_final) |> 
     summarise(companies = n()) |> 
     arrange(desc(companies)) |> 
-    top_n(10) |> 
+    top_n(25) |> 
     mutate(guo_final = as_factor(guo_final) |> 
                fct_reorder( companies, sort)) |> 
     ggplot(aes(companies, guo_final)) +
     geom_col() +
     labs(title = "", x = "Number of companies", y ="Global Unique Owner") +
-    theme_light(base_size = 10)
+    theme_light(base_size = 8)
 
 g2 <- dat |> 
     group_by(guo_final) |> 
     summarise(holdings = sum(holdings)) |>  
     arrange(desc(holdings)) |> 
-    top_n(10) |> 
+    top_n(25) |> 
     mutate(guo_final = as_factor(guo_final) |> 
                fct_reorder( holdings, sort)) |> 
     ggplot(aes(holdings, guo_final)) +
     geom_col() +
     labs(title = "", x = "Number of holdings", y ="")+
-    theme_light(base_size = 10)
+    theme_light(base_size = 8)
 
 # g3 <- df3 |> 
 #     arrange(desc(size_ownership)) |> 
@@ -250,6 +262,7 @@ ggsave(
     plot = (g1 +g2),
     device = "png",
     path = "figures/",
-    width = 8, height = 3,
+    width = 6, height = 4,
     bg = "white", dpi = 400
 )
+ 
