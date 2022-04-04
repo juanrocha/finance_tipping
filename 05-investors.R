@@ -10,8 +10,13 @@ library(ggnewscale)
 load("data/investors_cleaned.RData")
 load("data/casestudies.RData")
 
+dat ## companies - shareholders dataset
+df1 # company - commodities dataset
+df0 # case studies classification
 
 dat <- dat |>
+    ## Filtering ownership > 0.01 %: reduces obs from 4609 to 3621
+    filter(ownership > 0.01) |> 
     mutate(holdings = ownership * 0.05)
 
 dat |> 
@@ -22,10 +27,6 @@ dat |>
 
 ggsave(filename = "figures/ownership_distribution.png", 
        device = "png", width = 2, height = 2)
-
-
-dat
-df1
 
 
 # Exclude nodes that are not countries:
@@ -87,7 +88,7 @@ case_df <-  df1 %>% unique() |>
     # unique is needed because some companies operate in different subregions 
     # within a country
     unique() |> 
-    select(-country, -origin, -type) |> 
+    select(-country, -origin) |> 
     ## correct names for merging with investors data:
     mutate(
         company = case_when(
@@ -97,6 +98,8 @@ case_df <-  df1 %>% unique() |>
         )
     ) |> unique()
 
+case_df
+
 case_df$company [!case_df$company %in% dat$company] |> unique() # 4 in case_df but not in dat
 dat$company[!dat$company %in% case_df$company] |> unique() # 45 in dat but not in case_df
 
@@ -104,7 +107,7 @@ case_df |> pull(company) |> unique()  # 58 companies
 dat |> pull(company) |> unique() # 100 companies
 
 case_df <- case_df |> 
-    left_join(dat |> rename(shr_country = country)) ## 6.3k rows with countries; 3.9k without
+    left_join(dat |> rename(shr_country = country, shr_type = type)) ## 6.3k rows with countries; 3.9k without
 
 case_df |> filter(is.na(guo_final)) |>  pull(company) |> unique() 
 
@@ -117,12 +120,19 @@ case_df <- case_df |>
 case_df |> 
     group_by(shareholder, casestudy) |> 
     summarize(companies = n()) |> 
-    arrange(desc(companies)) |> 
-    ungroup() |> # group_by(casestudy) |> 
-    top_n(25) |> #print(n=200)
+    filter(companies > 1) |> 
+    arrange(casestudy, desc(companies)) |> 
+    ungroup() |> group_by(casestudy) |> 
+    mutate(casestudy = as_factor(casestudy)) |> 
+    slice_head(n = 10) |> #print(n=200) |> 
+    ungroup() |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    mutate(shareholder = fct_reorder(shareholder, companies, sum)) |> 
     ggplot(aes(companies, shareholder)) +
-    geom_col(aes(fill = casestudy)) +
-    theme_light(base_size = 8)
+    geom_col() +
+    tidytext::scale_y_reordered() +
+    facet_wrap(~casestudy, scales = "free_y") +
+    theme_light(base_size = 6)
 
 case_df |> 
     group_by(shareholder, casestudy) |> 
@@ -140,18 +150,103 @@ case_df |>
           legend.key.width = unit(3, "mm"))
 
 ggsave(
-    filename = "top_investors_220310)no-indv.png",
+    filename = "top_investors_higher001.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
-    width = 3.5, height = 5,
+    width = 3, height = 3,
+    bg = "white", dpi = 400
+)
+
+### ownership figures
+
+case_df |> 
+    group_by(shareholder, casestudy) |> 
+    summarize(sum_own = sum(ownership, na.rm = TRUE)) |> 
+    ungroup() |> 
+    slice_max(order_by = sum_own, n = 25) |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    mutate(shareholder = fct_reorder(shareholder, sum_own, sum)) |> 
+    ggplot(aes(sum_own, shareholder)) +
+    geom_col(aes(fill = casestudy)) +
+    labs(y = "Top 25 shareholders", x = "Sum of ownership") +
+    scale_fill_brewer("Case studies", palette = "Set3") +
+    theme_light(base_size = 6) +
+    theme(legend.position = c(0.8, 0.25))
+
+case_df |> 
+    group_by(shareholder, casestudy) |> 
+    summarize(sum_own = sum(ownership, na.rm = TRUE)) |> 
+    # filter(companies > 1) |> 
+    #arrange(casestudy, desc(ownership)) |> 
+    ungroup() |> group_by(casestudy) |> 
+    mutate(casestudy = as_factor(casestudy)) |> 
+    slice_head(n = 10) |> #print(n=200) |> 
+    ungroup() |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    #mutate(shareholder = fct_reorder(shareholder, sum_own, order)) |> 
+    ggplot(aes(sum_own, shareholder)) +
+    geom_col() +
+    tidytext::scale_y_reordered() +
+    facet_wrap(~casestudy, scales = "free_y") +
+    theme_light(base_size = 5)
+
+ggsave(
+    filename = "top_ownership_higher001_combined.png",
+    plot = last_plot(),
+    device = "png",
+    path = "figures/",
+    width = 4.5, height = 4,
+    bg = "white", dpi = 400
+)
+
+## Holdings
+case_df |> 
+    group_by(shareholder, casestudy) |> 
+    summarize(sum_hold = sum(holdings, na.rm = TRUE)) |> 
+    ungroup() |> 
+    slice_max(order_by = sum_hold, n = 25) |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    mutate(shareholder = fct_reorder(shareholder, sum_hold, sum)) |> 
+    ggplot(aes(sum_hold, shareholder)) +
+    geom_col(aes(fill = casestudy)) +
+    labs(y = "Top 25 shareholders", x = "Sum of holdings") +
+    scale_fill_brewer("Case studies", palette = "Set3") +
+    theme_light(base_size = 6) +
+    theme(legend.position = c(0.8, 0.25))
+
+case_df |> 
+    group_by(shareholder, casestudy) |> 
+    summarize(sum_hold = sum(ownership, na.rm = TRUE)) |> 
+    # filter(companies > 1) |> 
+    arrange(casestudy, desc(sum_hold)) |> 
+    ungroup() |> group_by(casestudy) |> 
+    mutate(casestudy = as_factor(casestudy)) |> 
+    slice_head(n = 10) |> #print(n=200) |> 
+    ungroup() |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    mutate(shareholder = fct_reorder(shareholder, sum_hold, sum)) |> 
+    ggplot(aes(sum_hold, shareholder)) +
+    geom_col() +
+    tidytext::scale_y_reordered() +
+    facet_wrap(~casestudy, scales = "free_y") +
+    theme_light(base_size = 5)
+
+ggsave(
+    filename = "top_holdings_higher001.png",
+    plot = last_plot(),
+    device = "png",
+    path = "figures/",
+    width = 4.5, height = 4,
     bg = "white", dpi = 400
 )
 
 
+
 ## network 
-inv_net <- |> |> 
-    select(shareholder, company, ownership, casestudy) |> unique() |>  
+inv_net <- case_df |> 
+    select(shareholder, company, ownership, holdings, casestudy) |> unique() |> 
+    filter(!is.na(shareholder)) |> 
     network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
             ignore.eval=FALSE, multiple = TRUE)
 
@@ -170,25 +265,31 @@ inv_net %v% "bigshark" <- ifelse(
 p1 <- ggplot(ggnetwork(inv_net, arrow.gap = 0.01, by = "casestudy"),
        aes(x = x, y = y, xend = xend, yend = yend)) +
     geom_edges(
-        aes(color = ownership), size =0.2, alpha = 1, 
+        aes(color = ownership), size =0.1, alpha = 1, 
         arrow = arrow(length = unit(2, "pt"), type = "closed")) +
-    #geom_nodes(aes(size = outdegree), color = "grey", alpha = 0.4) +
-    geom_nodes(color = "grey50", alpha = 0.2, size = 0.5) +
-    #geom_nodetext_repel(aes(label = bigshark), size = 1.5, max.iter = 1000) +
     scico::scale_color_scico(
         "Ownership", palette = "batlow", direction = -1,
         guide = guide_colorbar(
             barwidth = unit(2, "mm"), barheight = unit(20, "mm"))) +
-    labs(title = "Network of financial actors", 
-         subtitle = "55 companies and 1835 investors connedted through sharehodling", 
-         caption = "Data source: Orbis") +
+    new_scale_color() +
+    geom_nodes(aes(color = outdegree, size = outdegree), alpha = 0.4) +
+    scale_size_area("Investments", breaks = c(1,30,60), max_size = 3) +
+    scico::scale_color_scico(
+        "Outdegree", palette = "romaO", direction = 1,
+        guide = guide_colorbar(
+            barwidth = unit(2, "mm"), barheight = unit(20, "mm"))) +
+    #geom_nodes(color = "grey50", alpha = 0.2, size = 0.5) +
+    #geom_nodetext_repel(aes(label = bigshark), size = 1.5, max.iter = 1000) +
+    # labs(title = "Network of financial actors", 
+    #      subtitle = "55 companies and 1835 investors connedted through sharehodling", 
+    #      caption = "Data source: Orbis") +
     facet_wrap(~ casestudy) +
     theme_facet(base_size = 6) #Actors with names have investiments in > 20 companies
 p1
 
 
 ggsave(
-    plot = p1, path = "figures/", file = "net_shareholders_cases_220310_no-ind.png", device = "png",
+    plot = p1, path = "figures/", file = "net_shareholders_cases_220404.png", device = "png",
     width = 5, height = 4, bg = "white", dpi = 300
 )
 
@@ -211,16 +312,18 @@ df_stats |>
     theme_light(base_size = 6)
 
 ggsave(
-    plot = last_plot(), path = "figures/", file = "net_shareholders_outdegree_221003_no-ind.png", 
+    plot = last_plot(), path = "figures/", file = "net_shareholders_outdegree_220404.png", 
     device = "png",
     width = 3, height = 4.5, bg = "white", dpi = 300
 )
 
 
+
+
 #### Network map ####
 
 df_map <- left_join(
-    dat |> select(company, shareholder, country_shr = country, type, ownership) |> unique() |> 
+    dat |> select(company, shareholder, country_shr = country, type, ownership, op_revenue) |> unique() |> 
         filter(!is.na(country_shr), !shareholder %in% c("Public", "Self Owned"), !is.na(country_shr)),
     df1 |> filter(casestudy != "Other" , type != "Private", !is.na(country))  |>  
         select(company, country_comp = country, commodity, casestudy) |> unique() 
@@ -319,26 +422,49 @@ world <- ggplot(map_data("world"), aes(x = long, y = lat)) +
 
 world +
     geom_curve(
-        data = df_map, aes(x = x,y = y, xend = xend, yend = yend, color = ownership), 
+        data = df_map, aes(x = x,y = y, xend = xend, yend = yend, color = op_revenue), 
          alpha = 0.2, curvature = 0.1,  size = 0.05
     ) +
     scico::scale_color_scico(
-        "Ownership", palette = "berlin", 
-        guide= guide_colorbar(title.position = "top", barwidth = unit(20,"mm"),
-                              barheight = unit(2, "mm"))) +
+        "Revenue in USD", palette = "berlin", na.value = "orange",
+        guide= guide_colorbar(title.position = "top", barwidth = unit(30,"mm"),
+                              barheight = unit(3, "mm"))) +
     new_scale_color() +
     geom_point(data = df_actors, aes(x = x, y = y, color = type), alpha = 0.75, size = 0.5) +
-    scale_color_viridis_d(name = "Financial actor type", option = "D",
-                          guide = guide_legend(title.position = "top")) +
-    facet_wrap(~casestudy) + 
+    # scale_color_viridis_d(name = "Financial actor type", option = "D",
+    #                       guide = guide_legend(title.position = "top")) +
+    scale_color_brewer("Financial actor type", palette = "Set1",
+                       guide = guide_legend(title.position = "top")) +
+    #facet_wrap(~casestudy) + 
     theme_void(base_size = 6) +
     theme(legend.position = "bottom")
 
 ggsave(
-    plot = last_plot(), file = "network_map_cases.png", path = "figures/", device = "png",
+    plot = last_plot(), file = "network_map_revenue.png", path = "figures/", device = "png",
     width = 6, height = 5, dpi = 300, bg = "white"
 )
 
 
 save(df_map, file = "data/map_data.RData")
 
+
+### Anwer Paula's question on number of companies
+case_df |>
+    select(company, casestudy, type) |> 
+    unique() |> 
+    group_by(casestudy, type) |>
+    summarize(n = n()) 
+
+df1 |> 
+    group_by(casestudy, type) |> 
+    unique() |> 
+    summarize(n = n()) |> 
+    pivot_wider(names_from = type, values_from = n) |> 
+    mutate(Total = sum(Private, Public, `NA`, na.rm = TRUE))
+
+dat |> 
+    pull(company) |> 
+    unique() |> 
+    length()
+
+df1 |> pull(company) |> unique() |> length()

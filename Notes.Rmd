@@ -23,3 +23,8 @@ Exponential random graph models:
 - The later two should provide descriptive stats.
 
 Experiment with the HH-Index: https://en.wikipedia.org/wiki/Herfindahl–Hirschman_index
+
+Cannot make it bipartite because:
+The following vertices appear in both columns:
+	- Bnp Paribas
+	- Oji Holdings Corporation
