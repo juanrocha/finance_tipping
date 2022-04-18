@@ -5,12 +5,12 @@ url <- "https://stockholmuniversity.app.box.com/file/777762238977?s=8u6vl01c1efi
 ""
 ### Old datasets
 df1 <- readxl::read_xlsx(
-    path = "data/Drivers_Increasing_Risk_ED-2.xlsx",
+    path = "data/Drivers_Increasing_Risk_ED-3.xlsx",
     sheet = 1) %>% 
     janitor::clean_names()
 
 df2 <- readxl::read_xlsx(
-    path = "data/Drivers_Increasing_Risk_ED-2.xlsx",
+    path = "data/Drivers_Increasing_Risk_ED-3.xlsx",
     sheet = 2,
     na = "n.d") %>% 
     janitor::clean_names()

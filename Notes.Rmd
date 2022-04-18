@@ -28,3 +28,5 @@ Cannot make it bipartite because:
 The following vertices appear in both columns:
 	- Bnp Paribas
 	- Oji Holdings Corporation
+
+One could force it to be bipartite by changing name according to category. Once bipartite, use the one mode projections to calculate network statistics more relevant for influence. For example a weighted betweenness or something like that. 

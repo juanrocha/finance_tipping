@@ -6,6 +6,7 @@ library(sf)
 library(spData)
 library(scico)
 library(ggnewscale)
+library(ggrepel)
 # load data
 load("data/investors_cleaned.RData")
 load("data/casestudies.RData")
@@ -16,7 +17,7 @@ df0 # case studies classification
 
 dat <- dat |>
     ## Filtering ownership > 0.01 %: reduces obs from 4609 to 3621
-    filter(ownership > 0.01) |> 
+    #filter(ownership > 0.01) |> 
     mutate(holdings = ownership * 0.05)
 
 dat |> 
@@ -134,6 +135,15 @@ case_df |>
     facet_wrap(~casestudy, scales = "free_y") +
     theme_light(base_size = 6)
 
+ggsave(
+    filename = "top_investors_per_case.png",
+    plot = last_plot(),
+    device = "png",
+    path = "figures/",
+    width = 6, height = 5,
+    bg = "white", dpi = 400
+)
+
 case_df |> 
     group_by(shareholder, casestudy) |> 
     summarize(companies = n()) |> 
@@ -150,13 +160,44 @@ case_df |>
           legend.key.width = unit(3, "mm"))
 
 ggsave(
-    filename = "top_investors_higher001.png",
+    filename = "top_investors_higher001_by_type.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
     width = 3, height = 3,
     bg = "white", dpi = 400
 )
+
+case_df |> 
+    group_by(shareholder, casestudy, shr_type) |> 
+    mutate(shr_type = case_when(
+        is.na(shr_type) ~ "Company",
+        shr_type == "A" ~ "Insurance company",
+        shr_type == "B" ~ "Bank",
+        shr_type == "C" ~ "Corporate companies",
+        shr_type == "E" ~ "Mutual and pension fund",
+        shr_type == "F" ~ "Financial company",
+        shr_type == "J" ~ "Foundation, research institute",
+        shr_type == "L" ~ "Unnamed shareholders",
+        shr_type == "P" ~ "Private equity firms",
+        shr_type == "S" ~ "Public authorities, states, government",
+        shr_type == "V" ~ "Venture capital",
+        shr_type == "Y" ~ "Hedge fund",
+        shr_type == "" ~ "I"
+    )) |> filter(shr_type != "I") |> 
+    summarize(companies = n()) |> 
+    arrange(desc(companies)) |> 
+    filter(companies >= 10) |>
+    ungroup() |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    mutate(shareholder = fct_reorder(
+        .f = shareholder, .x = companies, .fun = sum, .desc = FALSE)) |> #pull(shareholder) |> levels()
+    ggplot(aes(companies, shareholder)) +
+    geom_col(aes(fill = shr_type)) +
+    scale_fill_brewer("Shareholder type",palette = "Set2") +
+    theme_light(base_size = 5) +
+    theme(legend.position = c(0.7, 0.2), legend.key.height = unit(2,"mm"),
+          legend.key.width = unit(2, "mm"))
 
 ### ownership figures
 
@@ -241,14 +282,57 @@ ggsave(
     bg = "white", dpi = 400
 )
 
+### size ownership
+publicomp <- read_csv2(
+    file = "data/Paulas_files/002-PublicCompanies.csv", 
+    locale = locale(encoding = "latin1")) |> 
+    janitor::clean_names()
 
+publicomp <- publicomp |> 
+    filter(type == "Public") |>
+    mutate(company = str_to_title(company)) |> 
+    select(company, market_cap_mll) |> unique()
 
-## network 
+case_df |> 
+    left_join(publicomp) |> 
+    mutate(size_own = ownership * market_cap_mll) |> # skimr::skim() #induces 11 NAs
+    group_by(shareholder, casestudy) |> 
+    summarize(sum_own = sum(size_own, na.rm = TRUE)) |> unique() |> 
+    slice_max(order_by = sum_own, n = 5) |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    #mutate(shareholder = fct_reorder(shareholder, sum_own, sort)) |> 
+    ggplot(aes(sum_own, shareholder)) +
+    #geom_col(alpha = 0.5, fill = "goldenrod") +
+    geom_col() +
+    labs(x = "Size of ownership in US$", y = "Top 25 shareholders") +
+    facet_wrap(~casestudy, scales = "free_y") +
+    theme_light(base_size = 6)
+
+ggsave(
+    filename = "top_ownership_size.png",
+    plot = last_plot(),
+    device = "png",
+    path = "figures/",
+    width = 4.5, height = 4,
+    bg = "white", dpi = 400
+)    
+
+#### network ####
+# 220415: Forcing the network to be bipartite, only two of the >1800 actors show in both classes:
+# - Bnp Paribas
+# - Oji Holdings Corporation
 inv_net <- case_df |> 
+    mutate(company = case_when(
+        company == "Bnp Paribas" ~ "Bnp Paribas_c",
+        company == "Oji Holdings Corporation" ~ "Oji Holdings Corporation_c",
+        TRUE ~ company
+    )) |> 
     select(shareholder, company, ownership, holdings, casestudy) |> unique() |> 
     filter(!is.na(shareholder)) |> 
-    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
+    network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, multiple = TRUE)
+
+inv_net |> as.sociomatrix.sna()
 
 # plot.network(
 #     inv_net, vertex.col = "orange", edge.col = "grey",#vertex.lty = 0,
@@ -289,7 +373,7 @@ p1
 
 
 ggsave(
-    plot = p1, path = "figures/", file = "net_shareholders_cases_220404.png", device = "png",
+    plot = p1, path = "figures/", file = "net_shareholders_cases_220415.png", device = "png",
     width = 5, height = 4, bg = "white", dpi = 300
 )
 
@@ -300,6 +384,45 @@ df_stats <- tibble(
     indegree = inv_net %v% "indegree",
     bet = betweenness(inv_net, gmode = "digraph", cmode = "directed", rescale = TRUE)
 )
+
+### Add a weighted metric of influence: betweenness is misleading because the network is 
+### almost bipartite except for two nodes. So betweeness should be calculated on the one
+### mode projections.
+
+case_df |> 
+    select(shareholder, company, ownership, holdings, casestudy, shr_type) |> unique() |> 
+    filter(!is.na(shareholder)) |> 
+    group_by(shareholder, shr_type) |> 
+    mutate(n = n()) |> 
+    summarize(mean_own = mean(ownership)) |> 
+    rename(name = shareholder) |> 
+    right_join(df_stats) |> 
+    arrange(desc(bet)) |> 
+    mutate(shr_type = case_when(
+        is.na(shr_type) ~ "Company",
+        shr_type == "A" ~ "Insurance company",
+        shr_type == "B" ~ "Bank",
+        shr_type == "C" ~ "Corporate companies",
+        shr_type == "E" ~ "Mutual and pension fund",
+        shr_type == "F" ~ "Financial company",
+        shr_type == "J" ~ "Foundation, research institute",
+        shr_type == "L" ~ "Unnamed shareholders",
+        shr_type == "P" ~ "Private equity firms",
+        shr_type == "S" ~ "Public authorities, states, government",
+        shr_type == "V" ~ "Venture capital",
+        shr_type == "Y" ~ "Hedge fund",
+        shr_type == "" ~ "I"
+    )) |> filter(shr_type != "I") |> 
+    mutate(label = ifelse( bet > 0 | outdegree > 40 | mean_own > 60, name, "")) |> 
+    ggplot(aes(mean_own, outdegree)) +
+    geom_point(aes(size = bet, color = shr_type)) +
+    geom_text_repel(aes(label = label), size = 2.5,
+                    max.overlaps = Inf, box.padding = 0.5) +
+    scale_color_brewer("Shareholder type", palette = "Set2") +
+    scale_size("Betweenness", guide = guide_legend(direction = "horizontal", title.position = "top")) +
+    theme_light()
+
+df_stats |> ggplot(aes(bet)) + geom_density() + geom_rug()
 
 df_stats |> 
     arrange(desc(outdegree)) |> 
@@ -317,8 +440,224 @@ ggsave(
     width = 3, height = 4.5, bg = "white", dpi = 300
 )
 
+### Bipartite
+bip_net <- case_df |> 
+    mutate(company = case_when(
+        company == "Bnp Paribas" ~ "Bnp Paribas_c",
+        company == "Oji Holdings Corporation" ~ "Oji Holdings Corporation_c",
+        TRUE ~ company
+    )) |> 
+    select(shareholder, company, ownership, holdings) |> unique() |> 
+    filter(!is.na(shareholder)) |> 
+    network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
+            ignore.eval=FALSE, multiple = FALSE)
+
+bib_mat <- bip_net |> as.sociomatrix.sna()
+dim(bib_mat) # 1835 shareholders, 55 companies
+
+shr_mat <- bib_mat %*% t(bib_mat)   # shareholders 
+m <- shr_mat > 1 # threshold is at least 1, with 0 I get over 1M links and 500Mb Net
+diag(m) <- 0
+shr_net <- network(m, directed = FALSE)
+shr_net %e% "comps" <- shr_mat
+shr_net %v% "degree" <- degree(shr_net, gmode = "graph")
+shr_net %v% "betweenness" <- betweenness(shr_net, gmode = "graph")
+
+p0 <- ggplot(ggnetwork(
+    # for visualization, delete isolates
+    delete.vertices(shr_net, which(shr_net %v% "degree" == 0)), 
+    arrow.gap = 0.01),
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(
+        aes(color = comps, alpha = comps), size =0.1) +
+    scico::scale_color_scico(
+        "Companies", palette = "batlow", direction = -1,
+        guide = guide_colorbar(
+            barwidth = unit(2, "mm"), barheight = unit(10, "mm"))) +
+    scale_alpha("Companies",range = c(0.25,1), breaks = c(10, 40),
+                guide = guide_legend(keywidth = unit(2,"mm"))) + 
+    new_scale_color() +
+    geom_nodes(aes(color = degree, size = betweenness), alpha = 0.8) +
+    scale_size_area("Betweeness", breaks = c(100,1000), max_size = 4) +
+    scico::scale_color_scico(
+        "Degree", palette = "romaO", direction = 1,
+        guide = guide_colorbar(
+            barwidth = unit(2, "mm"), barheight = unit(10, "mm"))) +
+    labs(tag = "A") + 
+    theme_void(base_size = 6) + 
+    theme(legend.position = c(0.05, 0.5)) #c(0.05, 0.5)
+
+p0
+
+co_mat <- t(bib_mat) %*% bib_mat    # companies
+m <- co_mat > 0
+diag(m) <- 0
+co_net <- network(m, directed = FALSE)
+co_net %e% "shareholders" <- co_mat
+co_net %v% "degree" <- degree(co_net, gmode = "graph")
+co_net %v% "betweenness" <- betweenness(co_net, gmode = "graph")
 
 
+shr_stats <- tibble(
+    shareholder = network.vertex.names(shr_net),
+    degree = shr_net %v% "degree",
+    betw = shr_net %v% "betweenness"
+)
+
+co_stats <- tibble(
+    company = network.vertex.names(co_net),
+    degree = co_net %v% "degree",
+    betw = co_net %v% "betweenness"
+)
+
+shr_stats <- case_df |> 
+    select(shareholder, company, ownership, holdings, casestudy, shr_type) |> unique() |> 
+    filter(!is.na(shareholder)) |> 
+    group_by(shareholder, shr_type) |> 
+    mutate(n = n()) |> 
+    summarize(mean_own = mean(ownership),
+              sd_own = sd(ownership, na.rm = TRUE)) |># arrange(desc(sd_own)) |> print(n=100)
+    right_join(shr_stats) |>
+    mutate(shr_type = case_when(
+        is.na(shr_type) ~ "Company",
+        shr_type == "A" ~ "Insurance company",
+        shr_type == "B" ~ "Bank",
+        shr_type == "C" ~ "Corporate companies",
+        shr_type == "E" ~ "Mutual and pension fund",
+        shr_type == "F" ~ "Financial company",
+        shr_type == "J" ~ "Foundation, research institute",
+        shr_type == "L" ~ "Unnamed shareholders",
+        shr_type == "P" ~ "Private equity firms",
+        shr_type == "S" ~ "Public authorities, states, government",
+        shr_type == "V" ~ "Venture capital",
+        shr_type == "Y" ~ "Hedge fund",
+        shr_type == "" ~ "I"
+    )) 
+
+p1 <- shr_stats |> filter(shr_type != "I") |> 
+    mutate(label = ifelse( betw > 200 | degree > 180 | mean_own > 60, shareholder, "")) |> 
+    ggplot(aes(mean_own, degree)) +
+    geom_point(aes(size = betw, color = shr_type), alpha = 0.5) +
+    scale_color_brewer("Shareholder type", palette = "Paired") +
+    scale_size("Betweenness", breaks = c(0, 100, 1000), range = c(1,5),
+               guide = guide_legend(
+                   direction = "horizontal", title.position = "top")) + 
+    labs(x = "Mean ownership", y = "Degree", tag = "B") +
+    theme_light(base_size = 6) +
+    theme(legend.position = c(0.65, 0.7), legend.key.size = unit(2,"mm"))
+
+p2 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
+    slice_max(order_by = degree, n = 25) |> 
+    arrange((degree)) |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    ggplot(aes(degree, shareholder)) +
+    geom_col(aes(fill = shr_type), show.legend = FALSE, alpha = 0.85) +
+    scale_fill_brewer("Shareholder type", palette = "Paired") +
+    labs(tag = "C", y = "Shareholder", x = "Degree")+
+    theme_light(base_size = 6) 
+
+p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
+    slice_max(order_by = betw, n = 25) |> 
+    arrange((betw)) |> 
+    mutate(shareholder = as_factor(shareholder)) |> 
+    ggplot(aes(betw, shareholder)) +
+    geom_col(aes(fill = shr_type), alpha = 0.85) +
+    scale_fill_brewer("Shareholder type", palette = "Paired") +
+    labs(tag = "D", x = "Betweenness", y = "Shareholder")+
+    theme_light(base_size = 6)  + 
+    theme(legend.position = c(0.65, 0.2), legend.key.size = unit(2,"mm"))   
+
+# top <- p0 + p1 + plot_layout(widths = c(1,1))
+# bot <- p2 + p3 + plot_layout(widths = c(1,1))
+# 
+# top/bot + plot_layout(heights = c(1,1))
+
+(p0+p2)/(p1+p3) + plot_layout(widths = c(1.5,1))
+
+# ggsave(
+#     plot = (p0+p2)/(p1+p3),
+#     path = "figures/", file = "shareholder_network_onemode.png",
+#     device = "png",
+#     width = 6, height = 6, bg = "white", dpi = 400
+# )
+
+
+p0 <- ggplot(ggnetwork(
+    # remove isolates 
+    delete.vertices(co_net, vid = which(co_net %v% "degree" == 0 )) , 
+    arrow.gap = 0.01),
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(
+        aes(color = shareholders, alpha = shareholders), size =0.1) +
+    scico::scale_color_scico(
+        "Shareholders", palette = "batlow", direction = -1,
+        guide = guide_colorbar(
+            barwidth = unit(2, "mm"), barheight = unit(10, "mm"))) +
+    scale_alpha("Sharenolders",range = c(0.25,1), breaks = c(10, 60),
+                guide = guide_legend(keywidth = unit(2,"mm"))) +
+    new_scale_color() +
+    geom_nodes(aes(color = degree, size = betweenness), alpha = 0.4) +
+    scale_size_area("Betweeness", breaks = c(1,5), max_size = 4) +
+    scico::scale_color_scico(
+        "Degree", palette = "romaO", direction = 1,
+        guide = guide_colorbar(
+            barwidth = unit(2, "mm"), barheight = unit(10, "mm"))) +
+    labs(tag = "A") +
+    theme_void(base_size = 6) + theme(legend.position = c(0.05, 0.5))
+
+co_stats <- df1 |> select(company, no_workers, type, turnover) |>
+    filter(type == "Public") |> unique() |>
+    arrange(company) |>  #print(n=122)
+    group_by(company, no_workers) |> 
+    summarize(turnover = max(turnover, na.rm = TRUE)) |> 
+    ungroup() |> 
+    right_join(co_stats)  #print(n=122)
+    
+p1 <- co_stats |> 
+    ggplot(aes(degree, betw)) +
+    geom_point(aes(size = turnover, color = turnover), alpha = 0.5, position = 'jitter') +
+    scico::scale_color_scico(
+        palette = "vikO", na.value = "grey50", n.breaks = 3,
+        guide = guide_colorbar(
+            title.position = "top", barwidth = unit(25,"mm"), barheight = unit(2,"mm"))) +
+    scale_size(breaks = c(5000,55000), range = c(1,5),
+               guide = guide_legend(title.position = "top"))+
+    labs(x = "Degree", y = "Betweenness", tag = "B") +
+    theme_light(base_size = 6) +
+    theme(legend.direction = "horizontal", legend.position = c(0.25,0.8))
+
+p2 <- co_stats |> 
+    slice_max(order_by = betw, n = 15) |> 
+    arrange((betw)) |> 
+    mutate(company = as_factor(company)) |> 
+    ggplot(aes(betw, company)) +
+    geom_col(aes(fill = turnover), alpha = 0.85) +
+    scale_fill_viridis_c("Turnover", option = "D", n.breaks = 5) +
+    labs(tag = "C", x = "Betweenness", y = "Company")+
+    theme_light(base_size = 6)  + 
+    theme(legend.position = c(0.85, 0.2), legend.key.height = unit(3.5,"mm"),
+          legend.key.width = unit(2,"mm"), 
+          legend.background = element_rect(fill = alpha("white", 0.5)))
+
+p3 <- co_stats |> 
+    slice_max(order_by = betw, n = 15) |> 
+    arrange((degree)) |> 
+    mutate(company = as_factor(company)) |> 
+    ggplot(aes(degree, company)) +
+    geom_col(aes(fill = turnover), alpha = 0.85, show.legend = FALSE) +
+    scale_fill_viridis_c("Turnover", option = "D") +
+    labs(tag = "D", x = "Degree", y = "Company")+
+    theme_light(base_size = 6) 
+
+
+(p0 + p2) / (p1 + p3) 
+
+# ggsave(
+#     plot = (p0 + p2) / (p1 + p3) ,
+#     path = "figures/", file = "company_network_onemode.png",
+#     device = "png",
+#     width = 6, height = 5, bg = "white", dpi = 500
+# )
 
 #### Network map ####
 
@@ -433,14 +772,14 @@ world +
     geom_point(data = df_actors, aes(x = x, y = y, color = type), alpha = 0.75, size = 0.5) +
     # scale_color_viridis_d(name = "Financial actor type", option = "D",
     #                       guide = guide_legend(title.position = "top")) +
-    scale_color_brewer("Financial actor type", palette = "Set1",
+    scale_color_brewer("Financial actor type", palette = "Paired",
                        guide = guide_legend(title.position = "top")) +
-    #facet_wrap(~casestudy) + 
+    facet_wrap(~casestudy) + 
     theme_void(base_size = 6) +
     theme(legend.position = "bottom")
 
 ggsave(
-    plot = last_plot(), file = "network_map_revenue.png", path = "figures/", device = "png",
+    plot = last_plot(), file = "network_map_cases.png", path = "figures/", device = "png",
     width = 6, height = 5, dpi = 300, bg = "white"
 )
 
