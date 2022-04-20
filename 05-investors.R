@@ -7,6 +7,7 @@ library(spData)
 library(scico)
 library(ggnewscale)
 library(ggrepel)
+library(patchwork)
 # load data
 load("data/investors_cleaned.RData")
 load("data/casestudies.RData")
@@ -160,7 +161,7 @@ case_df |>
           legend.key.width = unit(3, "mm"))
 
 ggsave(
-    filename = "top_investors_higher001_by_type.png",
+    filename = "top_investors_type.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
@@ -233,7 +234,7 @@ case_df |>
     theme_light(base_size = 5)
 
 ggsave(
-    filename = "top_ownership_higher001_combined.png",
+    filename = "top_ownership.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
@@ -274,11 +275,12 @@ case_df |>
     theme_light(base_size = 5)
 
 ggsave(
-    filename = "top_holdings_higher001.png",
+    filename = "top_holdings_percase.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
-    width = 4.5, height = 4,
+    width = 7, height = 5,
+    #width = 4.5, height = 4,
     bg = "white", dpi = 400
 )
 
@@ -296,16 +298,17 @@ publicomp <- publicomp |>
 case_df |> 
     left_join(publicomp) |> 
     mutate(size_own = ownership * market_cap_mll) |> # skimr::skim() #induces 11 NAs
-    group_by(shareholder, casestudy) |> 
-    summarize(sum_own = sum(size_own, na.rm = TRUE)) |> unique() |> 
-    slice_max(order_by = sum_own, n = 5) |> 
+    group_by(shareholder) |> unique() |> 
+    summarize(sum_own = sum(size_own, na.rm = TRUE)) |> 
+    ungroup() |> #group_by(casestudy) |> 
+    slice_max(order_by = sum_own, n = 25) |> 
     mutate(shareholder = as_factor(shareholder)) |> 
-    #mutate(shareholder = fct_reorder(shareholder, sum_own, sort)) |> 
+    mutate(shareholder = fct_reorder(shareholder, sum_own, sort)) |> 
     ggplot(aes(sum_own, shareholder)) +
     #geom_col(alpha = 0.5, fill = "goldenrod") +
     geom_col() +
     labs(x = "Size of ownership in US$", y = "Top 25 shareholders") +
-    facet_wrap(~casestudy, scales = "free_y") +
+    #facet_wrap(~casestudy, scales = "free_y") +
     theme_light(base_size = 6)
 
 ggsave(
@@ -323,13 +326,13 @@ ggsave(
 # - Oji Holdings Corporation
 inv_net <- case_df |> 
     mutate(company = case_when(
-        company == "Bnp Paribas" ~ "Bnp Paribas_c",
+        #company == "Bnp Paribas" ~ "Bnp Paribas_c",
         company == "Oji Holdings Corporation" ~ "Oji Holdings Corporation_c",
         TRUE ~ company
     )) |> 
     select(shareholder, company, ownership, holdings, casestudy) |> unique() |> 
     filter(!is.na(shareholder)) |> 
-    network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
+    network(directed = TRUE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, multiple = TRUE)
 
 inv_net |> as.sociomatrix.sna()
@@ -373,7 +376,7 @@ p1
 
 
 ggsave(
-    plot = p1, path = "figures/", file = "net_shareholders_cases_220415.png", device = "png",
+    plot = p1, path = "figures/", file = "net_shareholders_cases.png", device = "png",
     width = 5, height = 4, bg = "white", dpi = 300
 )
 
@@ -389,61 +392,27 @@ df_stats <- tibble(
 ### almost bipartite except for two nodes. So betweeness should be calculated on the one
 ### mode projections.
 
-case_df |> 
-    select(shareholder, company, ownership, holdings, casestudy, shr_type) |> unique() |> 
-    filter(!is.na(shareholder)) |> 
-    group_by(shareholder, shr_type) |> 
-    mutate(n = n()) |> 
-    summarize(mean_own = mean(ownership)) |> 
-    rename(name = shareholder) |> 
-    right_join(df_stats) |> 
-    arrange(desc(bet)) |> 
-    mutate(shr_type = case_when(
-        is.na(shr_type) ~ "Company",
-        shr_type == "A" ~ "Insurance company",
-        shr_type == "B" ~ "Bank",
-        shr_type == "C" ~ "Corporate companies",
-        shr_type == "E" ~ "Mutual and pension fund",
-        shr_type == "F" ~ "Financial company",
-        shr_type == "J" ~ "Foundation, research institute",
-        shr_type == "L" ~ "Unnamed shareholders",
-        shr_type == "P" ~ "Private equity firms",
-        shr_type == "S" ~ "Public authorities, states, government",
-        shr_type == "V" ~ "Venture capital",
-        shr_type == "Y" ~ "Hedge fund",
-        shr_type == "" ~ "I"
-    )) |> filter(shr_type != "I") |> 
-    mutate(label = ifelse( bet > 0 | outdegree > 40 | mean_own > 60, name, "")) |> 
-    ggplot(aes(mean_own, outdegree)) +
-    geom_point(aes(size = bet, color = shr_type)) +
-    geom_text_repel(aes(label = label), size = 2.5,
-                    max.overlaps = Inf, box.padding = 0.5) +
-    scale_color_brewer("Shareholder type", palette = "Set2") +
-    scale_size("Betweenness", guide = guide_legend(direction = "horizontal", title.position = "top")) +
-    theme_light()
-
-df_stats |> ggplot(aes(bet)) + geom_density() + geom_rug()
-
-df_stats |> 
-    arrange(desc(outdegree)) |> 
-    filter(outdegree > 10) |> 
-    mutate(name = as_factor(name)) |> 
-    mutate(name = fct_reorder(name, outdegree)) |> 
-    ggplot(aes(outdegree, name)) +
-    geom_col(alpha = 0.5, color = "goldenrod", fill = "goldenrod", size = 0.1) +
-    labs(x = "Number of connections (shareholding)", y = "Financial actors") +
-    theme_light(base_size = 6)
-
-ggsave(
-    plot = last_plot(), path = "figures/", file = "net_shareholders_outdegree_220404.png", 
-    device = "png",
-    width = 3, height = 4.5, bg = "white", dpi = 300
-)
+# 
+# df_stats |> 
+#     arrange(desc(outdegree)) |> 
+#     filter(outdegree > 10) |> 
+#     mutate(name = as_factor(name)) |> 
+#     mutate(name = fct_reorder(name, outdegree)) |> 
+#     ggplot(aes(outdegree, name)) +
+#     geom_col(alpha = 0.5, color = "goldenrod", fill = "goldenrod", size = 0.1) +
+#     labs(x = "Number of connections (shareholding)", y = "Financial actors") +
+#     theme_light(base_size = 6)
+# 
+# ggsave(
+#     plot = last_plot(), path = "figures/", file = "net_shareholders_outdegree_220404.png", 
+#     device = "png",
+#     width = 3, height = 4.5, bg = "white", dpi = 300
+# )
 
 ### Bipartite
 bip_net <- case_df |> 
     mutate(company = case_when(
-        company == "Bnp Paribas" ~ "Bnp Paribas_c",
+        #company == "Bnp Paribas" ~ "Bnp Paribas_c",
         company == "Oji Holdings Corporation" ~ "Oji Holdings Corporation_c",
         TRUE ~ company
     )) |> 
@@ -784,7 +753,7 @@ ggsave(
 )
 
 
-save(df_map, file = "data/map_data.RData")
+save(df_map, df_actors, file = "data/map_data.RData")
 
 
 ### Anwer Paula's question on number of companies

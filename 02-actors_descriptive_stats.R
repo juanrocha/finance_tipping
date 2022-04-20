@@ -177,14 +177,21 @@ dat |>
 dat |> filter(company == "Bio Pappel S.a.b") ## It seems that it double counts when accounting for individual persons
 dat |> filter(company == "Th Plantations Berhad") |> #print(n=32)
     filter(direct_percent> 70 | total_percent > 70) |> 
-    select(shareholder) ## It seem32)here was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.
+    select(shareholder) ## It seem32)here was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.\
+## three
+dat |> filter(company == "Nine Dragons Paper (Holdings) Limited") 
+    
+
 
 ## Solution: filter out the strange cases
 dat <- dat |> 
     ungroup() |> 
     filter(company != "Bio Pappel S.a.b" | type != "I") |> # get's rid of the individual
     # Lembaga Tabung Haji is a bank that owned >70% of the company that a year later is owned on similar % by the Government of Malasya. It get rid of two obs
-    filter(company != "Th Plantations Berhad" | shareholder != "Lembaga Tabung Haji") 
+    filter(company != "Th Plantations Berhad" | shareholder != "Lembaga Tabung Haji") |> 
+    ## same problem, keep only the most recent transaction
+    filter(company != "Nine Dragons Paper (Holdings) Limited" | shareholder != "Tfs Trust And Fiduciary Services Sa" ) |> 
+    filter(company != "Nine Dragons Paper (Holdings) Limited" | shareholder != "Bnp Paribas" )
 ## Reduces the data set to 3825 observations
 ## And the test is passed
 dat |> 
@@ -208,7 +215,7 @@ dat <- dat |> unique()
 ## remove individual persons from the analysis
 dat <- dat |> filter(type != "I")
 
-#save(dat, file = "data/investors_cleaned.RData")
+# save(dat, file = "data/investors_cleaned.RData")
 
 ### Visualizations
 load("data/investors_cleaned.RData")
