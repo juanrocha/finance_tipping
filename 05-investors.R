@@ -96,6 +96,7 @@ case_df <-  df1 %>% unique() |>
         company = case_when(
             company == "Golden Energy And Resources Ltd" ~ "Golden Energy And Resources Limited" ,
             company == "Pt Astra Agro Lestari Tbk" ~ "Pt Astra Agro Lestari Tbkê",
+            company == "Nine Dragons Paper Holdings" ~ "Nine Dragons Paper (Holdings) Limited",
             TRUE ~ company
         )
     ) |> unique()
@@ -105,8 +106,8 @@ case_df
 case_df$company [!case_df$company %in% dat$company] |> unique() # 4 in case_df but not in dat
 dat$company[!dat$company %in% case_df$company] |> unique() # 45 in dat but not in case_df
 
-case_df |> pull(company) |> unique()  # 58 companies
-dat |> pull(company) |> unique() # 100 companies
+case_df |> pull(company) |> unique()  # 54 companies
+dat |> pull(company) |> unique() # 99 companies
 
 case_df <- case_df |> 
     left_join(dat |> rename(shr_country = country, shr_type = type)) ## 6.3k rows with countries; 3.9k without
@@ -118,6 +119,7 @@ case_df <- case_df |>
     filter(!is.na(guo_final)) # 
     #filter(direct_percent > 0.01) # 0.01 is Neglegible (NG) in Orbis language
 
+case_df
 
 case_df |> 
     group_by(shareholder, casestudy) |> 
@@ -291,7 +293,7 @@ publicomp <- read_csv2(
     janitor::clean_names()
 
 publicomp <- publicomp |> 
-    filter(type == "Public") |>
+    #filter(type == "Public") |>
     mutate(company = str_to_title(company)) |> 
     select(company, market_cap_mll) |> unique()
 

@@ -215,7 +215,7 @@ dat <- dat |> unique()
 ## remove individual persons from the analysis
 dat <- dat |> filter(type != "I")
 
-# save(dat, file = "data/investors_cleaned.RData")
+#save(dat, file = "data/investors_cleaned.RData")
 
 ### Visualizations
 load("data/investors_cleaned.RData")
