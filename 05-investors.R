@@ -21,6 +21,7 @@ dat <- dat |>
     #filter(ownership > 0.01) |> 
     mutate(holdings = ownership * 0.05)
 
+
 dat |> 
     ggplot(aes(ownership)) + 
     geom_density() +
@@ -106,7 +107,7 @@ case_df
 case_df$company [!case_df$company %in% dat$company] |> unique() # 4 in case_df but not in dat
 dat$company[!dat$company %in% case_df$company] |> unique() # 45 in dat but not in case_df
 
-case_df |> pull(company) |> unique()  # 54 companies
+case_df |> pull(company) |> unique()  # 57 companies
 dat |> pull(company) |> unique() # 99 companies
 
 case_df <- case_df |> 
@@ -147,7 +148,7 @@ ggsave(
     bg = "white", dpi = 400
 )
 
-case_df |> 
+a <- case_df |> 
     group_by(shareholder, casestudy) |> 
     summarize(companies = n()) |> 
     arrange(desc(companies)) |> 
@@ -158,6 +159,8 @@ case_df |>
         .f = shareholder, .x = companies, .fun = sum, .desc = FALSE)) |> #pull(shareholder) |> levels()
     ggplot(aes(companies, shareholder)) +
     geom_col(aes(fill = casestudy)) +
+    scale_fill_brewer("Case study", palette = "Set2") +
+    labs(tag = "A", y = "Top shareholders", x = "Number of companies") + 
     theme_light(base_size = 6) +
     theme(legend.position = c(0.7, 0.2), legend.key.height = unit(3,"mm"),
           legend.key.width = unit(3, "mm"))
@@ -297,9 +300,11 @@ publicomp <- publicomp |>
     mutate(company = str_to_title(company)) |> 
     select(company, market_cap_mll) |> unique()
 
-case_df |> 
+b <- case_df |> 
+    select(company, shareholder, ownership) |> 
+    unique() |> 
     left_join(publicomp) |> 
-    mutate(size_own = ownership * market_cap_mll) |> # skimr::skim() #induces 11 NAs
+    mutate(size_own = (ownership/100) * market_cap_mll) |> # skimr::skim() #induces 11 NAs
     group_by(shareholder) |> unique() |> 
     summarize(sum_own = sum(size_own, na.rm = TRUE)) |> 
     ungroup() |> #group_by(casestudy) |> 
@@ -309,9 +314,9 @@ case_df |>
     ggplot(aes(sum_own, shareholder)) +
     #geom_col(alpha = 0.5, fill = "goldenrod") +
     geom_col() +
-    labs(x = "Size of ownership in US$", y = "Top 25 shareholders") +
+    labs(x = "Size of ownership in millions US$", y = "Top shareholders", tag = "B") +
     #facet_wrap(~casestudy, scales = "free_y") +
-    theme_light(base_size = 6)
+    theme_light(base_size = 9)
 
 ggsave(
     filename = "top_ownership_size.png",
@@ -320,7 +325,17 @@ ggsave(
     path = "figures/",
     width = 4.5, height = 4,
     bg = "white", dpi = 400
-)    
+)
+
+## figure for paper
+ggsave(
+    filename = "Fig3_top_shareholders.png",
+    plot = a+b,
+    device = "png",
+    path = "figures/",
+    width = 6.5, height = 4,
+    bg = "white", dpi = 400
+)
 
 #### network ####
 # 220415: Forcing the network to be bipartite, only two of the >1800 actors show in both classes:
@@ -632,13 +647,21 @@ p3 <- co_stats |>
 
 #### Network map ####
 
+load("data/map_data.RData")
+
 df_map <- left_join(
-    dat |> select(company, shareholder, country_shr = country, type, ownership, op_revenue) |> unique() |> 
+    dat |> 
+    select(company, shareholder, country_shr = country, type, ownership, op_revenue) |>
+        unique() |> 
         filter(!is.na(country_shr), !shareholder %in% c("Public", "Self Owned"), !is.na(country_shr)),
-    df1 |> filter(casestudy != "Other" , type != "Private", !is.na(country))  |>  
+    df1 |> filter(casestudy != "Other" , type != "Private", !is.na(country))  |> 
         select(company, country_comp = country, commodity, casestudy) |> unique() 
 ) |> 
     filter(!is.na(commodity), !is.na(country_comp))
+
+df_map <- df_map |> 
+    left_join(publicomp)
+
 
 skimr::skim(df_map)
 
@@ -688,8 +711,8 @@ df_map <- df_map |>
     left_join(df_cntr |> select(country_comp = name_long, coord_comp = geom))
 
 df_actors <- bind_rows(
-    df_map |> select(actor = company, coord = coord_comp) |> unique(),
-    df_map |> select(actor = shareholder, coord = coord_shr, type) |> unique()
+    df_map |> select(actor = company, coord = coord_comp, casestudy) |> unique(),
+    df_map |> select(actor = shareholder, coord = coord_shr, type, casestudy) |> unique()
 )
 
 df_map <- df_map |> 
@@ -722,36 +745,45 @@ df_actors <- df_actors |>
         type == "" ~ "I"
     )) |> filter(type != "I") # an individual
 
+df_map <- df_map |> 
+    mutate(size_own = (ownership /100)*market_cap_mll)
+
+df_actors <- df_actors |>
+    mutate(type2 = case_when(type == "Company" ~ "Company", TRUE ~ "Investors")) 
+
+   # print(n=200)
+
 ## Cant' do networks on sf, need to go down to bare ggplot
 ## old way
 world <- ggplot(map_data("world"), aes(x = long, y = lat)) +
     geom_polygon(aes(group = group), color = "grey65",
-                 fill = "#f9f9f9", size = 0.1) +
+                 fill = "#f9f9f9", size = 0.05) +
     #coord_map(projection = "mercator" ) #
     coord_quickmap() + theme_void(base_size = 6)
 
 world +
     geom_curve(
-        data = df_map, aes(x = x,y = y, xend = xend, yend = yend, color = op_revenue), 
-         alpha = 0.2, curvature = 0.1,  size = 0.05
+        data = df_map, aes(x = x,y = y, xend = xend, yend = yend, color = size_own), 
+         alpha = 0.85, curvature = 0.1,  size = 0.05
     ) +
     scico::scale_color_scico(
-        "Revenue in USD", palette = "berlin", na.value = "orange",
+        "Size of ownership in millions US$", palette = "berlin", na.value = "black",
         guide= guide_colorbar(title.position = "top", barwidth = unit(30,"mm"),
                               barheight = unit(3, "mm"))) +
     new_scale_color() +
-    geom_point(data = df_actors, aes(x = x, y = y, color = type), alpha = 0.75, size = 0.5) +
+    geom_point(data = df_actors, aes(x = x, y = y, color = type2),
+               alpha = 0.5, size = 0.35) +
     # scale_color_viridis_d(name = "Financial actor type", option = "D",
     #                       guide = guide_legend(title.position = "top")) +
-    scale_color_brewer("Financial actor type", palette = "Paired",
+    scale_color_brewer("", palette = "Set1",
                        guide = guide_legend(title.position = "top")) +
     facet_wrap(~casestudy) + 
     theme_void(base_size = 6) +
     theme(legend.position = "bottom")
 
 ggsave(
-    plot = last_plot(), file = "network_map_cases.png", path = "figures/", device = "png",
-    width = 6, height = 5, dpi = 300, bg = "white"
+    plot = last_plot(), file = "network_map_cases.pdf", path = "figures/", device = "pdf",
+    width = 7, height = 5, dpi = 1200, bg = "white"
 )
 
 

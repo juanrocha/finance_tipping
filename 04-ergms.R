@@ -5,8 +5,8 @@ library(ergm)
 library(broom)
 library(ggnetwork)
 library(patchwork)
+library(ggnewscale)
 
-#### Load data ####
 
 #alternatively: it contains the case study column needed for spliting.
 # load data
@@ -286,7 +286,7 @@ ggsave(
 )
 
 #### Network countries sharing companies: One single network ####
-net_countries <-  df1 %>% 
+net_edgelist <-  df1 %>% 
     select(company, origin, country) %>% 
     ## standardize names to combine later with wgi dataset
     mutate(
@@ -340,7 +340,9 @@ net_countries <-  df1 %>%
     filter(!(origin %in% no_country), !(country %in% no_country)) |> 
     # remove "Liechtenstein" to include inequality metrics:
     filter(origin != "Liechtenstein" ) |> 
-    ungroup() |> #unique() |> 
+    ungroup() 
+
+net_countries <- net_edgelist |> #unique() |> 
     network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
             ignore.eval=FALSE, loops = TRUE)
 
@@ -406,38 +408,113 @@ net_countries %v% "regulatory_qual" <- df_attr$`Regulatory Quality`
 net_countries %v% "rule_law" <- df_attr$`Rule of Law`
 net_countries %v% "voice_acc" <- df_attr$`Voice and Accountability`
 net_countries %v% "gini" <- df_attr$gini_mean
+net_countries %e% "chanlog" <- log1p(net_countries %e% "channel")
 
-
-#### ergms ####
-f0 <- ergm(net_countries ~ edges) # null model
-# Governance models
+#### ergm: binary ####
+# null model
+f0 <- ergm(net_countries ~ edges)
+# governance model
+tic()
 f1 <- ergm(
-    net_countries ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc"))
+    net_countries ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc"))
+toc()
+# governance + inequality
+tic()
+f2 <- ergm(
+    net_countries ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc") +
+        nodeicov("corruption") + nodeicov("gov_effectiveness") +
+        nodeicov("pol_stability" ) +
+        nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
+        nodeicov("gini"))
+toc()
 
+# g+i+structure
+tic()
+f3 <- ergm(
+    net_countries ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc") +
+        nodeicov("corruption") + nodeicov("gov_effectiveness") +
+        nodeicov("pol_stability" ) +
+        nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
+        nodeicov("gini") +  mutual + dgwnsp(type ="ISP") 
+)
+toc() # 91660s = 25.4hrs
+
+
+summary(f1)
+
+save(f0,f1,f2,f3, net_countries, file = "simple_ergms.RData")
+
+#### ergm: weighted ####
+library(ergm.count)
+library(tictoc)
+tic()
+f0 <- ergm(
+    net_countries ~ nonzero + sum, 
+    response = 'channel', reference = ~Poisson
+    # constraints = ~bd(maxin = 17, maxout = 50),
+    # constraints = ~degreedist
+    # control = snctrl(
+    #     MCMC.prop = ~ sparse,
+    #     #init.method = "MPLE",
+    #     MPLE.constraints.ignore = TRUE,
+    #     init.MPLE.samplesize = 5e7,
+    #     SAN.nsteps = 5e7,
+    #     SAN.prop = ~ sparse
+    #)
+) # null model
+toc() # 7s
+# Governance models
+tic()
+f1 <- ergm(
+    net_countries ~ nonzero + sum + diff("corruption", form = "sum") + diff("gov_effectiveness", form = "sum") +
+        diff("pol_stability", form = "sum") + diff("regulatory_qual", form = "sum") + 
+        diff("rule_law", form = "sum") + diff("voice_acc", form = "sum"), 
+    response = 'channel', reference = ~Poisson)
+toc() # 46s
+
+tic()
 f2 <-  ergm(
-    net_countries ~ edges + absdiff("corruption") +
-        absdiff("pol_stability") + absdiff("voice_acc"))
+    net_countries ~ nonzero + sum + diff("corruption", form = "sum") +  
+        diff("rule_law", form = "sum") + diff("voice_acc", form = "sum"), 
+    response = 'channel', reference = ~Poisson )
+toc() #110s
 
 # governance and inequality models
+tic()
 f3 <-  ergm(
-    net_countries ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc") + absdiff("gini"))
+    net_countries ~ nonzero + sum + diff("corruption", form = "sum") + 
+        diff("gov_effectiveness", form = "sum") +
+        diff("pol_stability", form = "sum") + diff("regulatory_qual", form = "sum") + 
+        diff("rule_law", form = "sum") + diff("voice_acc", form = "sum") +
+        diff("gini", form = "sum"), 
+    response = 'channel', reference = ~Poisson )
+toc() #107
 
+tic()
 f4 <-  ergm(
-    net_countries ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc") + absdiff("gini") +
-        nodeicov("corruption") + nodeicov("gov_effectiveness") + nodeicov("pol_stability") +
-        nodeicov("regulatory_qual") + nodeicov("rule_law") + nodeocov("corruption") +
-        nodeocov("gov_effectiveness") + nodeocov("pol_stability") +
-        nodeocov("regulatory_qual") + nodeocov("rule_law") + nodeicov("gini") + nodeocov("gini"))
+    net_countries ~ nonzero + sum + diff("corruption", form = "sum") + 
+        diff("gov_effectiveness", form = "sum") +
+        diff("pol_stability", form = "sum") + diff("regulatory_qual", form = "sum") + 
+        diff("rule_law", form = "sum") + diff("voice_acc", form = "sum") +
+        diff("gini", form = "sum" )+
+        nodeicov("corruption", form = "sum" ) + nodeicov("gov_effectiveness",form = "sum" ) +
+        nodeicov("pol_stability", form = "sum" ) +
+        nodeicov("regulatory_qual", form = "sum" ) + nodeicov("rule_law", form = "sum" ) + 
+        nodeocov("corruption", form = "sum" ) +
+        nodeocov("gov_effectiveness", form = "sum" ) + nodeocov("pol_stability", form = "sum" ) +
+        nodeocov("regulatory_qual", form = "sum" ) + nodeocov("rule_law", form = "sum" ) + 
+        nodeicov("gini", form = "sum" ) + nodeocov("gini", form = "sum" ), 
+    response = 'channel', reference = ~Poisson )
+toc()
 
-
-fits <- list(f0, f1, f2, f3, f4)
-fit_name <- c("null", "governance","short_gov","gov+ineq","gov+ineq+covars")
+fits <- list(f0, f1, f2)
+fit_name <- c("null", "difference","full")
 
 df_stats <- tibble(
     model = fit_name,
@@ -459,7 +536,7 @@ fits <- fits |> map(tidy, exponentiate = FALSE)
 fits <- map2(fits, fit_name, function(x,y) {x$model <- y; return(x)})
 #fits <- map2(fits, names(fits), function(x,y) {x$case <- y; return(x)})
 
-a <- fits |> 
+c <- fits |> 
     bind_rows() |> 
     mutate(p_value = case_when(
         p.value < 0.05 ~ "p < 0.05",
@@ -469,34 +546,29 @@ a <- fits |>
     mutate(term = fct_relevel(term, "edges")) |>
     mutate(term = fct_rev(term)) |> 
     ggplot(aes(estimate, term)) + 
-    geom_vline(aes(xintercept = 0), color = "gray50", linetype = 2) +
-    geom_point(aes(color = p_value), size = 1) +
+    geom_vline(aes(xintercept = 0), color = "gray50", linetype = 2, size = 0.1) +
+    geom_point(aes(color = p_value), size = 0.8) +
     geom_errorbarh(
         aes(xmin = estimate - std.error, xmax = estimate + std.error, color = p_value),
-        height = 0.5, size = 0.25) + 
+        height = 0.5, size = 0.15) + 
     #geom_text(aes( label = logLik), data = df_stats) +
+    scale_color_brewer(
+        "p value", palette = "Dark2",
+        guide = guide_legend(title.position = "top", keywidth = unit(2,"mm"), 
+                             keyheight = unit(2, "mm"))) +
     facet_wrap(~model, ncol = 5) +
-    labs(tag = "A") +
-    theme_linedraw(base_size = 6) +
-    theme(legend.position = c(0.06,0.2))
-
-b <- ggplot(df_stats, aes(logLik, model)) +
-    geom_col() +
-    labs(tag = "B") +
-    theme_light(base_size = 7)
-c <- ggplot(df_stats, aes(AIC, model)) +
-    geom_col() +
     labs(tag = "C") +
-    theme_light(base_size = 7)
-
-ggsave(
-    filename = "country_netmodels_220126.png",
-    plot = a/( b+c + d) ,
-    device = "png",
-    path = "figures/",
-    width = 7, height = 5,
-    bg = "white", dpi = 400
-)
+    theme_linedraw(base_size = 6) +
+    theme(legend.position = c(0.15,0.25))
+c
+# b <- ggplot(df_stats, aes(logLik, model)) +
+#     geom_col() +
+#     labs(tag = "B") +
+#     theme_light(base_size = 7)
+# c <- ggplot(df_stats, aes(AIC, model)) +
+#     geom_col() +
+#     labs(tag = "C") +
+#     theme_light(base_size = 7)
 
 
 ## add network attributes (this is for visualization)
@@ -532,18 +604,29 @@ ggsave(
     bg = "white", dpi = 400
 )
 
-d <- df_attr |> 
+b <- df_attr |> 
     ggplot(aes(indegree, outdegree)) +
     geom_point(aes(color = `Government Effectiveness`), size = 3) +
     geom_text(aes(label = isoa2), color = "white", size = 2) + 
     geom_abline(slope = 1, intercept = 0, color = "red") +
     scico::scale_color_scico(
         palette = "berlin",
-        guide = guide_colourbar(title.position = "top")) +
-    labs(tag = "D") +
+        guide = guide_colourbar(title.position = "top", direction = "horizontal")) +
+    labs(tag = "B") +
     theme_light(base_size = 5) +
-    theme(legend.position = "bottom", legend.key.height = unit(0.15, "cm"),
-          legend.key.width = unit(0.5, "cm"))
+    theme(legend.position = c(0.8, 0.87), legend.key.height = unit(0.15, "cm"),
+          legend.key.width = unit(0.4, "cm"))
+b
+
+ggsave(
+    filename = "country_netmodels_220126.png",
+    plot = a/( b+c + d) ,
+    device = "png",
+    path = "figures/",
+    width = 7, height = 5,
+    bg = "white", dpi = 400
+)
+
 
 ggsave(
     filename = "net_stats.png",
@@ -553,6 +636,14 @@ ggsave(
     width = 4, height = 3,
     bg = "white", dpi = 400
 )              
+
+
+## map for companies country networks
+
+
+
+## To-do: make a map with communities instead of b and c panels. Put the model stats on one fig for SM
+
 
 ### Network of countries given common shareholders
 ## I need to recompile again the list of case studies with country of destination in it. It is a slighthly larged dataset that the used previously, because companies can appear multiple times within a country if they expoit different subnational regions. 
@@ -695,35 +786,46 @@ shr_net %v% "gini" <- df_attr2$gini_mean
 s0 <- ergm(shr_net ~ edges) # null model
 # Governance models
 s1 <- ergm(
-    shr_net ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc"))
-
+    shr_net ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc"))
+# governance and inequality
 s2 <-  ergm(
-    shr_net ~ edges + absdiff("corruption") +
-        absdiff("pol_stability") + absdiff("voice_acc"))
+    shr_net ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc") +
+        nodeicov("corruption") + nodeicov("gov_effectiveness") +
+        nodeicov("pol_stability" ) +
+        nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
+        nodeicov("gini"))
 
-# governance and inequality models
+# governance and inequality models + structure
+tic()
 s3 <-  ergm(
-    shr_net ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc") + absdiff("gini"))
+    shr_net ~ edges + diff("corruption") + diff("gini") +
+        diff("gov_effectiveness") +  diff("pol_stability") +
+        diff("regulatory_qual") + diff("rule_law") + diff("voice_acc") +
+        nodeicov("corruption") + nodeicov("gov_effectiveness") +
+        nodeicov("pol_stability" ) +
+        nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
+        nodeicov("gini") +  mutual + intransitive)
+toc()
 
-s4 <-  ergm(
-    shr_net ~ edges + absdiff("corruption") + absdiff("gov_effectiveness") +
-        absdiff("pol_stability") + absdiff("regulatory_qual") + 
-        absdiff("rule_law") + absdiff("voice_acc") + absdiff("gini") +
-        nodeicov("corruption") + nodeicov("gov_effectiveness") + nodeicov("pol_stability") +
-        nodeicov("regulatory_qual") + nodeicov("rule_law") + nodeocov("corruption") +
-        nodeocov("gov_effectiveness") + nodeocov("pol_stability") +
-        nodeocov("regulatory_qual") + nodeocov("rule_law") + nodeicov("gini") + nodeocov("gini"))
+# s4 <-  ergm(
+#     shr_net ~ edges +  diff("corruption") + diff("gini") +
+#         diff("gov_effectiveness") +  diff("pol_stability") +
+#         diff("regulatory_qual") + diff("rule_law") + diff("voice_acc") +
+#         nodeicov("corruption") + nodeicov("gov_effectiveness") +
+#         nodeicov("pol_stability" ) +
+#         nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
+#         nodeicov("gini") )
 
 
-fits2 <- list(s0, s1, s2, s3, s4)
-fit_name <- c("null", "governance","short_gov","gov+ineq","gov+ineq+covars")
+fits2 <- list(s0, s1, s2)
+fit_name2 <- c("null", "difference","full")
 
 df_stats2 <- tibble(
-    model = fit_name,
+    model = fit_name2,
     case = names(fits2),
     logLik = map_dbl(fits2, logLik),
     AIC = map_dbl(fits2, AIC)
@@ -732,10 +834,10 @@ df_stats2 <- tibble(
 ### Produce the same figures but for stakeholder networks
 
 fits2 <- fits2 |> map(tidy, exponentiate = FALSE) 
-fits2 <- map2(fits2, fit_name, function(x,y) {x$model <- y; return(x)})
+fits2 <- map2(fits2, fit_name2, function(x,y) {x$model <- y; return(x)})
 #fits <- map2(fits, names(fits), function(x,y) {x$case <- y; return(x)})
 
-a <- fits2 |> 
+c <- fits2 |> 
     bind_rows() |> 
     mutate(p_value = case_when(
         p.value < 0.05 ~ "p < 0.05",
@@ -745,39 +847,44 @@ a <- fits2 |>
     mutate(term = fct_relevel(term, "edges")) |>
     mutate(term = fct_rev(term)) |> 
     ggplot(aes(estimate, term)) + 
-    geom_vline(aes(xintercept = 0), color = "gray50", linetype = 2) +
-    geom_point(aes(color = p_value), size = 1) +
+    geom_vline(aes(xintercept = 0), color = "gray50", linetype = 2, size = 0.1) +
+    geom_point(aes(color = p_value), size = 0.8) +
     geom_errorbarh(
         aes(xmin = estimate - std.error, xmax = estimate + std.error, color = p_value),
-        height = 0.5, size = 0.25) + 
+        height = 0.5, size = 0.15) + 
     #geom_text(aes( label = logLik), data = df_stats) +
+    scale_color_brewer(
+        "p value", palette = "Dark2",
+        guide = guide_legend(title.position = "top", keywidth = unit(2,"mm"), 
+                             keyheight = unit(2, "mm"))) +
     facet_wrap(~model, ncol = 5) +
-    labs(tag = "A") +
+    labs(tag = "C") +
     theme_linedraw(base_size = 6) +
-    theme(legend.position = c(0.06,0.2))
-
+    theme(legend.position = c(0.15,0.25))
+c
 b <- ggplot(df_stats2, aes(logLik, model)) +
     geom_col() +
     labs(tag = "B") +
     theme_light(base_size = 7)
+
 c <- ggplot(df_stats2, aes(AIC, model)) +
     geom_col() +
     labs(tag = "C") +
     theme_light(base_size = 7)
 
-d <- df_attr2 |> 
+b <- df_attr2 |> 
     ggplot(aes(indegree, outdegree)) +
     geom_point(aes(color = `Government Effectiveness`), size = 3) +
     geom_text(aes(label = nodes), color = "white", size = 2) + 
     geom_abline(slope = 1, intercept = 0, color = "red") +
     scico::scale_color_scico(
         palette = "berlin",
-        guide = guide_colourbar(title.position = "top")) +
-    labs(tag = "D") +
+        guide = guide_colourbar(title.position = "top", direction = "horizontal")) +
+    labs(tag = "B") +
     theme_light(base_size = 5) +
-    theme(legend.position = "bottom", legend.key.height = unit(0.15, "cm"),
-          legend.key.width = unit(0.5, "cm"))
-
+    theme(legend.position = c(0.3, 0.87), legend.key.height = unit(0.15, "cm"),
+          legend.key.width = unit(0.4, "cm"))
+b
 ggsave(
     filename = "country_shareholder_netmodels_220505.png",
     plot = a/( b+c + d) ,
@@ -787,20 +894,9 @@ ggsave(
     bg = "white", dpi = 400
 )
 
-## maps
-library(sf)
-library(spData)
-data(world)
-df_cntr <- world |> 
-    #filter(!is.na(pop)) |> # remove non-countries aggregations
-    st_centroid(of_largest = TRUE) |> 
-    select(iso_a2, name_long, geom)
 
-world <- ggplot(map_data("world"), aes(x = long, y = lat)) +
-    geom_polygon(aes(group = group), color = "grey65",
-                 fill = "#f9f9f9", size = 0.1) +
-    #coord_map(projection = "mercator" ) #
-    coord_quickmap() + theme_void(base_size = 6)
+## Cool, add community detection to it :)
+#library(igraph)
 
 shr_edgelist <- case_df |> 
     group_by(shr_country, country) |> 
@@ -808,6 +904,77 @@ shr_edgelist <- case_df |>
     left_join(df_attr |> select(country = nodes, comp_country = isoa2)) |> 
     select(shr_country, comp_country, n) |> 
     filter(!is.na(shr_country)) 
+
+shr_igraph <- shr_edgelist |> 
+    select(1:3) |> 
+    igraph::graph_from_data_frame() 
+
+ctr_igraph <- net_edgelist |> 
+    igraph::graph_from_data_frame()
+
+memb <- ctr_igraph |> 
+    igraph::cluster_walktrap(weights = igraph::edge_attr(ctr_igraph)$n)
+
+imc <- shr_igraph |> 
+    igraph::cluster_walktrap(weights = igraph::edge_attr(shr_igraph)$n)
+
+# ## only one cluster
+# membership(imc)
+# communities(imc)
+# plot(imc, shr_igraph )
+
+community <- tibble(
+    nodes = names(igraph::membership(imc)),
+    comm = igraph::membership(imc)
+)
+
+community2 <- tibble(
+    nodes = names(igraph::membership(memb)),
+    comm2 = igraph::membership(memb)
+)
+
+## All communities above 6 are of only one member:
+community2 <- community2 |> 
+    mutate(comm2 = as.numeric(comm2)) |> 
+    mutate(comm2 = case_when(comm2 > 5 ~ 6, TRUE ~ comm2))
+
+df_attr2 <- df_attr2 |> 
+    left_join(community)
+
+df_attr <- df_attr |> 
+    select(-comm2) |> 
+    left_join(community2)
+
+shr_net %v% "community" <- as.numeric(df_attr2$comm)
+
+## maps
+library(sf)
+library(spData)
+data(world)
+
+world <- left_join(world, community, by = c("iso_a2" = "nodes"))
+world <- left_join(world, df_attr, by = c("iso_a2" = "isoa2"))
+
+prob <- df_attr$isoa2[!df_attr$isoa2 %in% world$iso_a2] # easier to join with iso codes, but still a few missing
+community2$nodes[!community2$nodes %in% world$name_long]
+
+df_attr |> filter(isoa2 %in% prob)
+
+# df_cntr <- world |> 
+#     #filter(!is.na(pop)) |> # remove non-countries aggregations
+#     st_centroid(of_largest = TRUE) |> 
+#     select(iso_a2, name_long, geom)
+
+world_map <- ggplot(world) +
+    geom_sf(aes(fill = as.factor(comm2)), size = 0.1, alpha = 0.3) +
+    scale_fill_brewer(
+        "Communities",palette = "Set1", na.value = "gray95", direction = -1,
+        guide = guide_legend(title.position = "top", keywidth = unit(2,"mm"), 
+                             keyheight = unit(2, "mm"))) +
+    lims(y = c(-55, 90)) + labs(tag = "A") +
+    theme_void(base_size = 6) +
+    theme(legend.position = c(0.2, 0.3))
+world_map
 
 shr_edgelist <- shr_edgelist |> 
     left_join(df_cntr |> select(-name_long), by = c("shr_country" = "iso_a2")) |> 
@@ -822,31 +989,48 @@ shr_edgelist <- shr_edgelist |>
     mutate(across(.cols = x:yend, .fns = as.numeric)) |> 
     ## I need to add noise to the coordinates to avoid an error in geom_curve
     mutate(across(.cols = x:yend, .fns = function(x) x + rnorm(length(x), sd = 0.001))) |> 
+    # Add coordinates of Bahamas
     mutate(x = case_when(shr_country == "BM" ~ -77.957665, TRUE ~ x),
            y = case_when(shr_country == "BM" ~ 24.520330, TRUE ~ y))
 
 shr_edgelist |> filter(is.na(xend))
 
-world +
+m1 <- world_map +
     geom_curve(
         data = shr_edgelist, aes(x = x,y = y, xend = xend, yend = yend, color = n), 
-        alpha = 0.6, curvature = 0.1,  size = 0.1
+        curvature = 0.1,  size = 0.1
     ) +
     scico::scale_color_scico(
-        "Revenue in USD", palette = "berlin", na.value = "orange",
+        "Financial actors", 
+        palette = "bamako", na.value = "orange", direction = 1,
         guide= guide_colorbar(title.position = "top", barwidth = unit(30,"mm"),
                               barheight = unit(3, "mm"))) +
-    # new_scale_color() +
-    # geom_point(data = df_actors, aes(x = x, y = y, color = type), alpha = 0.75, size = 0.5) +
-    # # scale_color_viridis_d(name = "Financial actor type", option = "D",
-    # #                       guide = guide_legend(title.position = "top")) +
-    # scale_color_brewer("Financial actor type", palette = "Paired",
-    #                    guide = guide_legend(title.position = "top")) +
-    # facet_wrap(~casestudy) + 
+    labs(tag = "C") +
     theme_void(base_size = 6) +
     theme(legend.position = "bottom")
 
-## Cool, add community detection to it :)
+
+m1 / (d+a) + plot_layout(heights = c(2,1))
+
+world_map/(b+c) + plot_layout(heights = c(1.5,1))
+
+ggsave(
+    plot = world_map/(b+c) + plot_layout(heights = c(1.5,1)),
+    filename = "figures/cmp_net_map.png",
+    device = "png", width = 6, height = 4, dpi = 400, bg = "white"
+)
+
+# ggplot(ggnetwork(shr_net), aes(x = x, y = y, xend = xend, yend = yend)) +
+#     geom_edges(aes(color = n), arrow = arrow(length = unit(4, "pt"), type = "open"),
+#                alpha = 0.4, size = 0.25) +
+#     scale_color_viridis_c("Shareholders", option = "C") +
+#     new_scale_color() +
+#     geom_nodes(aes(color = as.factor(community)), alpha = 0.3) +
+#     scale_color_brewer(
+#         "Communities",palette = "Set1", na.value = "gray95", direction = -1,
+#         guide = guide_legend(title.position = "top", keywidth = unit(2,"mm"), 
+#                              keyheight = unit(2, "mm"))) +
+#     theme_void()
 
 #### key actors ####
 df1 |> 

@@ -11,5 +11,6 @@ data/
 .DS_Store
 .httr-oauth
 ~/.boxr-oauth
-.zip
-
+*.zip
+*.RData
+*.pdf
