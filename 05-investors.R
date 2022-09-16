@@ -11,6 +11,7 @@ library(patchwork)
 # load data
 load("data/investors_cleaned.RData")
 load("data/casestudies.RData")
+load("data/shr_class.RData")
 
 dat ## companies - shareholders dataset
 df1 # company - commodities dataset
@@ -120,7 +121,9 @@ case_df <- case_df |>
     filter(!is.na(guo_final)) # 
     #filter(direct_percent > 0.01) # 0.01 is Neglegible (NG) in Orbis language
 
-case_df
+unique(case_df$shareholder) %in% shr_class$company
+
+
 
 case_df |> 
     group_by(shareholder, casestudy) |> 
@@ -139,14 +142,14 @@ case_df |>
     facet_wrap(~casestudy, scales = "free_y") +
     theme_light(base_size = 6)
 
-ggsave(
-    filename = "top_investors_per_case.png",
-    plot = last_plot(),
-    device = "png",
-    path = "figures/",
-    width = 6, height = 5,
-    bg = "white", dpi = 400
-)
+# ggsave(
+#     filename = "top_investors_per_case.png",
+#     plot = last_plot(),
+#     device = "png",
+#     path = "figures/",
+#     width = 6, height = 5,
+#     bg = "white", dpi = 400
+# )
 
 a <- case_df |> 
     group_by(shareholder, casestudy) |> 
@@ -165,32 +168,43 @@ a <- case_df |>
     theme(legend.position = c(0.7, 0.2), legend.key.height = unit(3,"mm"),
           legend.key.width = unit(3, "mm"))
 
-ggsave(
-    filename = "top_investors_type.png",
-    plot = last_plot(),
-    device = "png",
-    path = "figures/",
-    width = 3, height = 3,
-    bg = "white", dpi = 400
-)
+# ggsave(
+#     filename = "top_investors_type.png",
+#     plot = last_plot(),
+#     device = "png",
+#     path = "figures/",
+#     width = 3, height = 3,
+#     bg = "white", dpi = 400
+# )
 
-case_df |> 
+case_df <- case_df |> 
+    left_join(shr_class) |> 
     group_by(shareholder, casestudy, shr_type) |> 
+    mutate(shr_type = str_sub(class, start = 1L, end = 1L)) |> 
     mutate(shr_type = case_when(
-        is.na(shr_type) ~ "Company",
-        shr_type == "A" ~ "Insurance company",
-        shr_type == "B" ~ "Bank",
-        shr_type == "C" ~ "Corporate companies",
-        shr_type == "E" ~ "Mutual and pension fund",
-        shr_type == "F" ~ "Financial company",
-        shr_type == "J" ~ "Foundation, research institute",
-        shr_type == "L" ~ "Unnamed shareholders",
-        shr_type == "P" ~ "Private equity firms",
-        shr_type == "S" ~ "Public authorities, states, government",
-        shr_type == "V" ~ "Venture capital",
-        shr_type == "Y" ~ "Hedge fund",
-        shr_type == "" ~ "I"
-    )) |> filter(shr_type != "I") |> 
+        #is.na(shr_class) ~ "Company",
+        shr_type == "A" ~ "Agriculture, forestry and fishing",
+        shr_type == "B" ~ "Mining and quarrying",
+        shr_type == "C" ~ "Manufacturing",
+        shr_type == "D" ~ "Electricity, gas, steam and air conditioning supply",
+        shr_type == "F" ~ "Construction",
+        shr_type == "G" ~ "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+        shr_type == "H" ~ "Transportation and storage",
+        shr_type == "I" ~ "Accommodation and food service activities",
+        shr_type == "J" ~ "Information and communication",
+        shr_type == "K" ~ "Financial and insurance activities",
+        shr_type == "L" ~ "Real estate activities",
+        shr_type == "M" ~ "Professional, scientific and technical activities",
+        shr_type == "N" ~ "Administrative and support service activities",
+        shr_type == "O" ~ "Public administration and defence; compulsory social security",
+        shr_type == "P" ~ "Education",
+        shr_type == "Q" ~ "Human health and social work activities",
+        shr_type == "R" ~ "Arts, entertainment and recreation",
+        shr_type == "S" ~ "Other service activities"
+        #shr_type == "" ~ "I"
+    )) 
+
+case_df |> filter(shr_type != "I") |> 
     summarize(companies = n()) |> 
     arrange(desc(companies)) |> 
     filter(companies >= 10) |>
@@ -239,7 +253,7 @@ case_df |>
     theme_light(base_size = 5)
 
 ggsave(
-    filename = "top_ownership.png",
+    filename = "top_ownership_shr_type.png",
     plot = last_plot(),
     device = "png",
     path = "figures/",
@@ -503,22 +517,7 @@ shr_stats <- case_df |>
     mutate(n = n()) |> 
     summarize(mean_own = mean(ownership),
               sd_own = sd(ownership, na.rm = TRUE)) |># arrange(desc(sd_own)) |> print(n=100)
-    right_join(shr_stats) |>
-    mutate(shr_type = case_when(
-        is.na(shr_type) ~ "Company",
-        shr_type == "A" ~ "Insurance company",
-        shr_type == "B" ~ "Bank",
-        shr_type == "C" ~ "Corporate companies",
-        shr_type == "E" ~ "Mutual and pension fund",
-        shr_type == "F" ~ "Financial company",
-        shr_type == "J" ~ "Foundation, research institute",
-        shr_type == "L" ~ "Unnamed shareholders",
-        shr_type == "P" ~ "Private equity firms",
-        shr_type == "S" ~ "Public authorities, states, government",
-        shr_type == "V" ~ "Venture capital",
-        shr_type == "Y" ~ "Hedge fund",
-        shr_type == "" ~ "I"
-    )) 
+    right_join(shr_stats) 
 
 p1 <- shr_stats |> filter(shr_type != "I") |> 
     mutate(label = ifelse( betw > 200 | degree > 180 | mean_own > 60, shareholder, "")) |> 
@@ -530,17 +529,20 @@ p1 <- shr_stats |> filter(shr_type != "I") |>
                    direction = "horizontal", title.position = "top")) + 
     labs(x = "Mean ownership", y = "Degree", tag = "B") +
     theme_light(base_size = 6) +
-    theme(legend.position = c(0.65, 0.7), legend.key.size = unit(2,"mm"))
+    theme(legend.position = c(0.65, 0.5), legend.key.size = unit(2,"mm"),
+          legend.background = element_rect(fill = alpha("white", 0.5)))
 
 p2 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
     slice_max(order_by = degree, n = 25) |> 
     arrange((degree)) |> 
     mutate(shareholder = as_factor(shareholder)) |> 
     ggplot(aes(degree, shareholder)) +
-    geom_col(aes(fill = shr_type), show.legend = FALSE, alpha = 0.85) +
+    geom_col(aes(fill = shr_type), show.legend = TRUE, alpha = 0.85) +
     scale_fill_brewer("Shareholder type", palette = "Paired") +
     labs(tag = "C", y = "Shareholder", x = "Degree")+
-    theme_light(base_size = 6) 
+    theme_light(base_size = 6) + 
+    theme(legend.position = c(0.5, 0.1), legend.key.size = unit(2,"mm"),
+          legend.background = element_rect(fill = alpha("white", 0.75))) 
 
 p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
     slice_max(order_by = betw, n = 25) |> 
@@ -551,7 +553,8 @@ p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |>
     scale_fill_brewer("Shareholder type", palette = "Paired") +
     labs(tag = "D", x = "Betweenness", y = "Shareholder")+
     theme_light(base_size = 6)  + 
-    theme(legend.position = c(0.65, 0.2), legend.key.size = unit(2,"mm"))   
+    theme(legend.position = c(0.5, 0.1), legend.key.size = unit(2,"mm"),
+          legend.background = element_rect(fill = alpha("white", 0.75)))   
 
 # top <- p0 + p1 + plot_layout(widths = c(1,1))
 # bot <- p2 + p3 + plot_layout(widths = c(1,1))
@@ -560,12 +563,12 @@ p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |>
 
 (p0+p2)/(p1+p3) + plot_layout(widths = c(1.5,1))
 
-# ggsave(
-#     plot = (p0+p2)/(p1+p3),
-#     path = "figures/", file = "shareholder_network_onemode.png",
-#     device = "png",
-#     width = 6, height = 6, bg = "white", dpi = 400
-# )
+ggsave(
+    plot = (p0+p2)/(p1+p3),
+    path = "figures/", file = "shareholder_network_onemode.png",
+    device = "png",
+    width = 6, height = 6, bg = "white", dpi = 400
+)
 
 
 p0 <- ggplot(ggnetwork(
@@ -644,6 +647,8 @@ p3 <- co_stats |>
 #     device = "png",
 #     width = 6, height = 5, bg = "white", dpi = 500
 # )
+
+write_csv(shr_stats, file = "data/shr_stats.csv")
 
 #### Network map ####
 
@@ -766,23 +771,26 @@ world +
         data = df_map, aes(x = x,y = y, xend = xend, yend = yend, color = size_own), 
          alpha = 0.85, curvature = 0.1,  size = 0.05
     ) +
-    scico::scale_color_scico(
-        "Size of ownership in millions US$", palette = "berlin", na.value = "black",
-        guide= guide_colorbar(title.position = "top", barwidth = unit(30,"mm"),
-                              barheight = unit(3, "mm"))) +
+    # scico::scale_color_scico( trans = "log1p",
+    #     "Size of ownership in millions US$", palette = "berlin", na.value = "black",
+    #     guide= guide_colorbar(title.position = "top", barwidth = unit(30,"mm"),
+    #                           barheight = unit(3, "mm"))) +
+    scale_color_viridis_c( trans = "log10",
+        name = "Size of ownership\nin millions US$", option = "D", na.value = "black",
+        guide= guide_colorbar(title.position = "top", barwidth = unit(3,"mm"),
+                             barheight = unit(30, "mm"))) +
     new_scale_color() +
-    geom_point(data = df_actors, aes(x = x, y = y, color = type2),
-               alpha = 0.5, size = 0.35) +
-    # scale_color_viridis_d(name = "Financial actor type", option = "D",
-    #                       guide = guide_legend(title.position = "top")) +
+    geom_jitter(data = df_actors, aes(x = x, y = y, color = type2),
+               alpha = 0.5, size = 0.35, width = 5, height = 5) +
+    
     scale_color_brewer("", palette = "Set1",
                        guide = guide_legend(title.position = "top")) +
     facet_wrap(~casestudy) + 
     theme_void(base_size = 6) +
-    theme(legend.position = "bottom")
+    theme(legend.position = "right")
 
 ggsave(
-    plot = last_plot(), file = "network_map_cases.pdf", path = "figures/", device = "pdf",
+    plot = last_plot(), file = "network_map_cases_jittered.pdf", path = "figures/", device = "pdf",
     width = 7, height = 5, dpi = 1200, bg = "white"
 )
 
@@ -790,7 +798,7 @@ ggsave(
 save(df_map, df_actors, file = "data/map_data.RData")
 
 
-### Anwer Paula's question on number of companies
+### Asnwer Paula's question on number of companies
 case_df |>
     select(company, casestudy, type) |> 
     unique() |> 
