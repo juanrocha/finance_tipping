@@ -736,12 +736,12 @@ world_map <- ggplot(world) +
     theme(legend.position = c(0.2, 0.3))
 world_map
 
-world_map/(fig5b+fig5c) + plot_layout(heights = c(1.5,1))
-
+(world_map / fig5b) / fig5c + plot_layout(heights = c(1.5,1,1))
+#world_map/(fig5b+fig5c) + plot_layout(heights = c(1.5,1))
 ggsave(
-    plot = world_map/(fig5b+fig5c) + plot_layout(heights = c(1.5,1)),
-    filename = "figures/shr_net_map.png",
-    device = "png", width = 6, height = 4, dpi = 400, bg = "white"
+    plot = (world_map / fig5b) / fig5c + plot_layout(heights = c(1.5,1,1)),
+    filename = "figures/shr_net_map_v2.png",
+    device = "png", width = 7, height = 5, dpi = 400, bg = "white"
 )
 
 a <- df_stats |> 

@@ -22,16 +22,16 @@ dat <- dat |>
     #filter(ownership > 0.01) |> 
     mutate(holdings = ownership * 0.05)
 
-
-dat |> 
-    ggplot(aes(ownership)) + 
-    geom_density() +
-    scale_x_log10() +
-    theme_light(base_size = 6)
-
-ggsave(filename = "figures/ownership_distribution.png", 
-       device = "png", width = 2, height = 2)
-
+# 
+# dat |> 
+#     ggplot(aes(ownership)) + 
+#     geom_density() +
+#     scale_x_log10() +
+#     theme_light(base_size = 6)
+# 
+# ggsave(filename = "figures/ownership_distribution.png", 
+#        device = "png", width = 2, height = 2)
+# 
 
 # Exclude nodes that are not countries:
 no_country <- c("Central Europe", "Eastern Europe", "Middle East", "Southern Europe", "Europe", "Fejér", "Taiwan")
@@ -121,7 +121,7 @@ case_df <- case_df |>
     filter(!is.na(guo_final)) # 
     #filter(direct_percent > 0.01) # 0.01 is Neglegible (NG) in Orbis language
 
-unique(case_df$shareholder) %in% shr_class$company
+unique(case_df$shareholder) %in% shr_class$shareholder
 
 
 
@@ -179,16 +179,16 @@ a <- case_df |>
 
 case_df <- case_df |> 
     left_join(shr_class) |> 
-    group_by(shareholder, casestudy, shr_type) |> 
+    #group_by(shareholder, casestudy, shr_type) |> 
     mutate(shr_type = str_sub(class, start = 1L, end = 1L)) |> 
     mutate(shr_type = case_when(
-        #is.na(shr_class) ~ "Company",
+        #is.na(shr_type) ~ "Missing",
         shr_type == "A" ~ "Agriculture, forestry and fishing",
         shr_type == "B" ~ "Mining and quarrying",
         shr_type == "C" ~ "Manufacturing",
         shr_type == "D" ~ "Electricity, gas, steam and air conditioning supply",
         shr_type == "F" ~ "Construction",
-        shr_type == "G" ~ "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+        shr_type == "G" ~ "Wholesale and retail trade",
         shr_type == "H" ~ "Transportation and storage",
         shr_type == "I" ~ "Accommodation and food service activities",
         shr_type == "J" ~ "Information and communication",
@@ -196,7 +196,7 @@ case_df <- case_df |>
         shr_type == "L" ~ "Real estate activities",
         shr_type == "M" ~ "Professional, scientific and technical activities",
         shr_type == "N" ~ "Administrative and support service activities",
-        shr_type == "O" ~ "Public administration and defence; compulsory social security",
+        shr_type == "O" ~ "Public administration and defence",
         shr_type == "P" ~ "Education",
         shr_type == "Q" ~ "Human health and social work activities",
         shr_type == "R" ~ "Arts, entertainment and recreation",
@@ -204,7 +204,8 @@ case_df <- case_df |>
         #shr_type == "" ~ "I"
     )) 
 
-case_df |> filter(shr_type != "I") |> 
+case_df |> #filter(shr_type != "I") |> 
+    group_by(shareholder, casestudy, shr_type) |>
     summarize(companies = n()) |> 
     arrange(desc(companies)) |> 
     filter(companies >= 10) |>
@@ -252,14 +253,14 @@ case_df |>
     facet_wrap(~casestudy, scales = "free_y") +
     theme_light(base_size = 5)
 
-ggsave(
-    filename = "top_ownership_shr_type.png",
-    plot = last_plot(),
-    device = "png",
-    path = "figures/",
-    width = 4.5, height = 4,
-    bg = "white", dpi = 400
-)
+# ggsave(
+#     filename = "top_ownership_shr_type.png",
+#     plot = last_plot(),
+#     device = "png",
+#     path = "figures/",
+#     width = 4.5, height = 4,
+#     bg = "white", dpi = 400
+# )
 
 ## Holdings
 case_df |> 
@@ -293,15 +294,15 @@ case_df |>
     facet_wrap(~casestudy, scales = "free_y") +
     theme_light(base_size = 5)
 
-ggsave(
-    filename = "top_holdings_percase.png",
-    plot = last_plot(),
-    device = "png",
-    path = "figures/",
-    width = 7, height = 5,
-    #width = 4.5, height = 4,
-    bg = "white", dpi = 400
-)
+# ggsave(
+#     filename = "top_holdings_percase.png",
+#     plot = last_plot(),
+#     device = "png",
+#     path = "figures/",
+#     width = 7, height = 5,
+#     #width = 4.5, height = 4,
+#     bg = "white", dpi = 400
+# )
 
 ### size ownership
 publicomp <- read_csv2(
@@ -319,6 +320,10 @@ b <- case_df |>
     unique() |> 
     left_join(publicomp) |> 
     mutate(size_own = (ownership/100) * market_cap_mll) |> # skimr::skim() #induces 11 NAs
+    mutate(shareholder=case_when(
+        shareholder == "Archer Daniels Midland Asia-Pacific Limited" ~  "Archer Daniels Midland Company" ,
+        TRUE ~ shareholder
+    )) |> 
     group_by(shareholder) |> unique() |> 
     summarize(sum_own = sum(size_own, na.rm = TRUE)) |> 
     ungroup() |> #group_by(casestudy) |> 
@@ -330,17 +335,17 @@ b <- case_df |>
     geom_col() +
     labs(x = "Size of ownership in millions US$", y = "Top shareholders", tag = "B") +
     #facet_wrap(~casestudy, scales = "free_y") +
-    theme_light(base_size = 9)
+    theme_light(base_size = 6)
 
-ggsave(
-    filename = "top_ownership_size.png",
-    plot = last_plot(),
-    device = "png",
-    path = "figures/",
-    width = 4.5, height = 4,
-    bg = "white", dpi = 400
-)
-
+# ggsave(
+#     filename = "top_ownership_size.png",
+#     plot = last_plot(),
+#     device = "png",
+#     path = "figures/",
+#     width = 4.5, height = 4,
+#     bg = "white", dpi = 400
+# )
+# 
 ## figure for paper
 ggsave(
     filename = "Fig3_top_shareholders.png",
@@ -366,7 +371,7 @@ inv_net <- case_df |>
     network(directed = TRUE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, multiple = TRUE)
 
-inv_net |> as.sociomatrix.sna()
+#inv_net |> as.sociomatrix.sna()
 
 # plot.network(
 #     inv_net, vertex.col = "orange", edge.col = "grey",#vertex.lty = 0,
@@ -406,10 +411,10 @@ p1 <- ggplot(ggnetwork(inv_net, arrow.gap = 0.01, by = "casestudy"),
 p1
 
 
-ggsave(
-    plot = p1, path = "figures/", file = "net_shareholders_cases.png", device = "png",
-    width = 5, height = 4, bg = "white", dpi = 300
-)
+# ggsave(
+#     plot = p1, path = "figures/", file = "net_shareholders_cases.png", device = "png",
+#     width = 5, height = 4, bg = "white", dpi = 300
+# )
 
 
 df_stats <- tibble(
@@ -441,7 +446,7 @@ df_stats <- tibble(
 # )
 
 ### Bipartite
-bip_net <- case_df |> 
+bip_net <- case_df |> ungroup() |> 
     mutate(company = case_when(
         #company == "Bnp Paribas" ~ "Bnp Paribas_c",
         company == "Oji Holdings Corporation" ~ "Oji Holdings Corporation_c",
@@ -529,7 +534,7 @@ p1 <- shr_stats |> filter(shr_type != "I") |>
                    direction = "horizontal", title.position = "top")) + 
     labs(x = "Mean ownership", y = "Degree", tag = "B") +
     theme_light(base_size = 6) +
-    theme(legend.position = c(0.65, 0.5), legend.key.size = unit(2,"mm"),
+    theme(legend.position = c(0.625, 0.6), legend.key.size = unit(2,"mm"),
           legend.background = element_rect(fill = alpha("white", 0.5)))
 
 p2 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
@@ -541,7 +546,7 @@ p2 <- shr_stats |> filter(shr_type != "I") |> ungroup() |>
     scale_fill_brewer("Shareholder type", palette = "Paired") +
     labs(tag = "C", y = "Shareholder", x = "Degree")+
     theme_light(base_size = 6) + 
-    theme(legend.position = c(0.5, 0.1), legend.key.size = unit(2,"mm"),
+    theme(legend.position = c(0.65, 0.1), legend.key.size = unit(2,"mm"),
           legend.background = element_rect(fill = alpha("white", 0.75))) 
 
 p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |> 
@@ -553,7 +558,7 @@ p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |>
     scale_fill_brewer("Shareholder type", palette = "Paired") +
     labs(tag = "D", x = "Betweenness", y = "Shareholder")+
     theme_light(base_size = 6)  + 
-    theme(legend.position = c(0.5, 0.1), legend.key.size = unit(2,"mm"),
+    theme(legend.position = c(0.7, 0.15), legend.key.size = unit(2,"mm"),
           legend.background = element_rect(fill = alpha("white", 0.75)))   
 
 # top <- p0 + p1 + plot_layout(widths = c(1,1))
@@ -561,10 +566,10 @@ p3 <- shr_stats |> filter(shr_type != "I") |> ungroup() |>
 # 
 # top/bot + plot_layout(heights = c(1,1))
 
-(p0+p2)/(p1+p3) + plot_layout(widths = c(1.5,1))
+(p0+p2)/(p1+p3) + plot_layout(widths = c(1.5,1.5, 1, 1))
 
 ggsave(
-    plot = (p0+p2)/(p1+p3),
+    plot = (p0/p1)|(p2/p3) + plot_layout(widths = c(1.5,1.5, 1, 1)) ,
     path = "figures/", file = "shareholder_network_onemode.png",
     device = "png",
     width = 6, height = 6, bg = "white", dpi = 400
