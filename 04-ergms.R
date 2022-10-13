@@ -346,7 +346,7 @@ df_attr <- df_attr |>
 
 fig5b <- df_attr |> 
     ggplot(aes(indegree, outdegree)) +
-    geom_point(aes(color = `Government Effectiveness`), size = 3) +
+    geom_point(aes(color = `Government Effectiveness`), size = 4, alpha = 0.9) +
     geom_text(aes(label = isoa2), color = "white", size = 2) + 
     geom_abline(slope = 1, intercept = 0, color = "red") +
     scico::scale_color_scico(
@@ -634,7 +634,7 @@ c <- ggplot(df_stats2, aes(AIC, model)) +
 
 fig6b <- df_attr2 |> 
     ggplot(aes(indegree, outdegree)) +
-    geom_point(aes(color = `Government Effectiveness`), size = 3) +
+    geom_point(aes(color = `Government Effectiveness`), size = 4, alpha = 0.9) +
     geom_text(aes(label = nodes), color = "white", size = 2) + 
     geom_abline(slope = 1, intercept = 0, color = "red") +
     scico::scale_color_scico(

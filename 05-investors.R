@@ -121,7 +121,7 @@ case_df <- case_df |>
     filter(!is.na(guo_final)) # 
     #filter(direct_percent > 0.01) # 0.01 is Neglegible (NG) in Orbis language
 
-unique(case_df$shareholder) %in% shr_class$shareholder
+unique(case_df$shareholder) %in% shr_class$shareholder |> sum()
 
 
 
@@ -215,7 +215,7 @@ case_df |> #filter(shr_type != "I") |>
         .f = shareholder, .x = companies, .fun = sum, .desc = FALSE)) |> #pull(shareholder) |> levels()
     ggplot(aes(companies, shareholder)) +
     geom_col(aes(fill = shr_type)) +
-    scale_fill_brewer("Shareholder type",palette = "Set2") +
+    scale_fill_brewer("Shareholder type",palette = "Set2", na.value = "grey50") +
     theme_light(base_size = 5) +
     theme(legend.position = c(0.7, 0.2), legend.key.height = unit(2,"mm"),
           legend.key.width = unit(2, "mm"))
@@ -232,7 +232,7 @@ case_df |>
     ggplot(aes(sum_own, shareholder)) +
     geom_col(aes(fill = casestudy)) +
     labs(y = "Top 25 shareholders", x = "Sum of ownership") +
-    scale_fill_brewer("Case studies", palette = "Set3") +
+    scale_fill_brewer("Case studies", palette = "Set3", na.value = "grey50") +
     theme_light(base_size = 6) +
     theme(legend.position = c(0.8, 0.25))
 
@@ -523,6 +523,12 @@ shr_stats <- case_df |>
     summarize(mean_own = mean(ownership),
               sd_own = sd(ownership, na.rm = TRUE)) |># arrange(desc(sd_own)) |> print(n=100)
     right_join(shr_stats) 
+
+## problems:
+shr_stats |> filter(is.na(shr_type)) |> 
+    select(shareholder, degree) |> 
+    arrange(desc(degree)) |> 
+    print(n=61)
 
 p1 <- shr_stats |> filter(shr_type != "I") |> 
     mutate(label = ifelse( betw > 200 | degree > 180 | mean_own > 60, shareholder, "")) |> 
