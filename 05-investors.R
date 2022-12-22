@@ -159,7 +159,8 @@ a <- case_df |>
     ungroup() |> 
     mutate(shareholder = as_factor(shareholder)) |> 
     mutate(shareholder = fct_reorder(
-        .f = shareholder, .x = companies, .fun = sum, .desc = FALSE)) |> #pull(shareholder) |> levels()
+        .f = shareholder, .x = companies, .fun = sum, .desc = FALSE)) |> 
+    #pull(shareholder) |> levels()
     ggplot(aes(companies, shareholder)) +
     geom_col(aes(fill = casestudy)) +
     scale_fill_brewer("Case study", palette = "Set2") +
@@ -180,27 +181,50 @@ a <- case_df |>
 case_df <- case_df |> 
     left_join(shr_class) |> 
     #group_by(shareholder, casestudy, shr_type) |> 
-    mutate(shr_type = str_sub(class, start = 1L, end = 1L)) |> 
+    mutate(shr_type2 = str_sub(class, start = 1L, end = 1L)) |> 
+    mutate(shr_type2 = case_when(
+        # this is the NACE classification
+        #is.na(shr_type2) ~ "Missing",
+        shr_type2 == "A" ~ "Agriculture, forestry and fishing",
+        shr_type2 == "B" ~ "Mining and quarrying",
+        shr_type2 == "C" ~ "Manufacturing",
+        shr_type2 == "D" ~ "Electricity, gas, steam and air conditioning supply",
+        shr_type2 == "F" ~ "Construction",
+        shr_type2 == "G" ~ "Wholesale and retail trade",
+        shr_type2 == "H" ~ "Transportation and storage",
+        shr_type2 == "I" ~ "Accommodation and food service activities",
+        shr_type2 == "J" ~ "Information and communication",
+        shr_type2 == "K" ~ "Financial and insurance activities",
+        shr_type2 == "L" ~ "Real estate activities",
+        shr_type2 == "M" ~ "Professional, scientific and technical activities",
+        shr_type2 == "N" ~ "Administrative and support service activities",
+        shr_type2 == "O" ~ "Public administration and defence",
+        shr_type2 == "P" ~ "Education",
+        shr_type2 == "Q" ~ "Human health and social work activities",
+        shr_type2 == "R" ~ "Arts, entertainment and recreation",
+        shr_type2 == "S" ~ "Other service activities"
+        #shr_type2 == "" ~ "I"
+    )) |> # below the orginal Orbis classification
     mutate(shr_type = case_when(
-        #is.na(shr_type) ~ "Missing",
-        shr_type == "A" ~ "Agriculture, forestry and fishing",
-        shr_type == "B" ~ "Mining and quarrying",
-        shr_type == "C" ~ "Manufacturing",
-        shr_type == "D" ~ "Electricity, gas, steam and air conditioning supply",
-        shr_type == "F" ~ "Construction",
-        shr_type == "G" ~ "Wholesale and retail trade",
-        shr_type == "H" ~ "Transportation and storage",
-        shr_type == "I" ~ "Accommodation and food service activities",
-        shr_type == "J" ~ "Information and communication",
-        shr_type == "K" ~ "Financial and insurance activities",
-        shr_type == "L" ~ "Real estate activities",
+        is.na(shr_type) ~ "Missing",
+        shr_type == "A" ~ "Insurance company",
+        shr_type == "B" ~ "Bank",
+        shr_type == "C" ~ "Corporate companies",
+        shr_type == "D" ~ "Unnamed private shareholders",
+        shr_type == "F" ~ "Financial company",
+        #shr_type == "G" ~ "Wholesale and retail trade",
+        shr_type == "H" ~ "Self ownership",
+        shr_type == "I" ~ "One or more known individuals or families",
+        shr_type == "J" ~ "Foundation or Research Institute",
+        shr_type == "Z" ~ "Public",
+        shr_type == "L" ~ "Employees/Managers/Directors",
         shr_type == "M" ~ "Professional, scientific and technical activities",
-        shr_type == "N" ~ "Administrative and support service activities",
-        shr_type == "O" ~ "Public administration and defence",
-        shr_type == "P" ~ "Education",
-        shr_type == "Q" ~ "Human health and social work activities",
-        shr_type == "R" ~ "Arts, entertainment and recreation",
-        shr_type == "S" ~ "Other service activities"
+        shr_type == "V" ~ "Venture capital",
+        shr_type == "Y" ~ "Hedge fund",
+        shr_type == "P" ~ "Private equity firms",
+        shr_type == "Q" ~ "Branch",
+        shr_type == "W" ~ "Marine vessel",
+        shr_type == "S" ~ "Public authorities, States, Governments"
         #shr_type == "" ~ "I"
     )) 
 
@@ -488,6 +512,7 @@ p0 <- ggplot(ggnetwork(
         "Degree", palette = "romaO", direction = 1,
         guide = guide_colorbar(
             barwidth = unit(2, "mm"), barheight = unit(10, "mm"))) +
+    guides(alpha = "none") +
     labs(tag = "A") + 
     theme_void(base_size = 6) + 
     theme(legend.position = c(0.05, 0.5)) #c(0.05, 0.5)

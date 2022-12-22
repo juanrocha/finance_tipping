@@ -36,3 +36,8 @@ One could force it to be bipartite by changing name according to category. Once 
 - use constraints on degree: keep degrees constant. But not sure how to code it
 - Play with control features:
         - MCMCLE.maxit = < 60 which is the current default (how do I get the defaults?)
+        
+        
+## Marine study
+
+Title: Identifying companies and financial actors exposed to marine tipping points

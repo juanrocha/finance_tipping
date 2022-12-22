@@ -112,6 +112,40 @@ apo <- readxl::read_excel("data/002-Allocation_quotas_2020.xlsx", sheet = 2) |>
 
 apo |> select(permit_holder) |> unique()
 ```
+```{r}
+## from Alaskan pollock permits:
+## files ending in cp are catcher processors, endin gin cv are catcher vessels
+fls <- dir_ls("data/Alaska_pollock/")
+
+dat <- fls |> str_subset("afa") |> 
+    map(.f = function(x) read_csv(x, skip=1) |> janitor::clean_names()) |> 
+    map(select, owner_name) |> 
+    bind_rows() |> 
+    unique()
+dat
+
+write_csv(dat, file = "fishing_companies_alaskan-pollock.csv")
+```
+
+
+
+### Extract companies
+
+```{r}
+
+companies <- bind_rows(
+    anch |> select(company = titular_de_cuota_ltp) |> unique(),
+    sard |> select(company = titular_de_cuota_ltp) |> unique(),
+    sardesp |> select(company = titular_de_cuota_ltp) |> unique()
+) |> unique()
+
+companies 
+```
+
+```{r}
+write_csv(companies, file = "fishing_comps_sardina-anchoveta.csv")
+```
+
 
 ## Pacific tuna
 
