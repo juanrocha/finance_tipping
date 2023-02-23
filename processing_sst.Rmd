@@ -1,0 +1,20 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+This notebook takes all `.nc` files from NOAA with sea surface temperature data and merge them into one big file. It follows the rationale of this [tutorial](https://robwschlegel.github.io/heatwaveR/articles/Download_SST_v2.html).
+Note that `cdo` needs to be previously installed. If not available, follow instructions [here](https://code.mpimet.mpg.de/projects/cdo/embedded/index.html#x1-30001.1).
+
+Working locally on my mac, the command was `brew install cdo` on the terminal.
+
+```{bash}
+cd ~/Documents/Projects/DATA/OISST
+time cdo mergetime *.nc OISST_combined.nc
+```
+
+A few files do not have the expected size (~1.6Mb), instead they have a few Kb. Need to be re-downloaded manually or programatically. Less than 10, doing manual.s
+
+J230223: Output created, file moved now under the root directory of the project/data/

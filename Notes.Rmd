@@ -2,7 +2,19 @@
 title: "Notes"
 output: html_notebook
 author: Juan Rocha
+editor_options: 
+  chunk_output_type: inline
 ---
+
+# Notes
+
+*20230202*
+
+- Download the Fishing effort dataset used in Krodsma y Carmine. It contain GPS traces of >70k vessels with some information about ownership. Carmine has addional owners identified but only for high seas vessels.
+- Problem: we only have ocean disclosure project data for pacific tuna, which are mainly retailiers and very few companies. Excludes China and all the key actors of that area. Go with the fine grane data, much better.
+
+- create a spatial mask to filter the vessels of interest: this is, regions of the world with exposure to tipping points: my map + heatwaves papers.
+
 
 To-do list:
 
@@ -38,6 +50,42 @@ One could force it to be bipartite by changing name according to category. Once 
         - MCMCLE.maxit = < 60 which is the current default (how do I get the defaults?)
         
         
-## Marine study
+        
+### Lloyds
 
-Title: Identifying companies and financial actors exposed to marine tipping points
+- P & I club is insurance
+- Download Carmine SM it has fishing vessel numbers and owners.
+opitions AHS markets: IMO global record of fishing vessles,. globalrecord.fao.org/vessels
+
+- Overlay management areas RFMO regional fisheries managmenet organisations maps...regulatory body that groups the relevant countries that need to cooperate to handle potential shifts in the fisheries.
+
+
+
+## Readings
+
+*Carmine 2020 OneEarth*
+- Combining satellite data with other public databases, our analysis showed 1,120 corporate actors owned 2,482 high seas fishing vessels in 2018 ($2/3 of total detected ves- sels). The industry is consolidated with 100 companies representing 36% of high seas fishing effort.
+- China, the fishing entity of Taiwan, Japan, Indonesia, Spain, and the Republic of Korea accounting for 77% of the identified global high seas fishing fleet and 80% of all high seas fishing effort for 2016.
+- Global Fishing Watch (GFW): gps records per vessel, 3.5k vessels in 2018
+- One of the main challenges in this analysis was determining the ultimate parent company. [we target that challenge]
+- At present, about 55,000 vessels have been identified with AIS as actively fishing in EEZs in 2018.
+- The fishing vessels with AIS data represent a fraction of the world’s total motorized fishing fleets of length greater than 12 m, estimated to be 300,000 vessels,
+
+Method:
+-  To avoid counting fishing hours associated with falsified AIS signals, we excluded, from this analysis, vessels whose supposedly unique AIS identities were simultaneously shared between two or more vessels over 72 h in total during 2018.
+- GFW’s vessel database attributed owner information to about 1,199 vessels relying mostly on publicly available data including IMO’s shipping information system.
+
+*kroodsma 2018 Science*
+
+- more than 70,000 identified fishing vessels that are 6 to 146 m in length. 
+- Global hot spots of fishing effort were seen in the northeast Atlantic (Europe) and northwest Pacific (China, Japan, and Russia) and in upwelling regions off South America and West Africa (Fig. 1A).
+- most nations fished predominantly within
+their own EEZ, with five flag states (China, Spain, Taiwan, Japan, and South Korea) accounting for more than 85% of observed fishing effort on the high seas
+- modern fishing is like other forms of mass production that are partially insulated from natural cycles and are instead shaped by policy and culture.
+
+**Frölicher et al 2018 Nature**
+
+- "Between 1982 and 2016, we detect a doubling in the number of MHW days, and this number is projected to factor of 16 for global warming of 1.5 degrees Celsius relative to preindustrial levels and by a factor 23 for global warming of 2.0 degrees Celsius"...3.1C will be 41x times more MHW.
+- The modeling results when compared with satellite observations gives confidence to the spatial extend of predictions, less so to their duration, cumulative mean intensity or absolute spatial extend.
+- at 3.5C warming, a one-in-a-hundred-days event will become a one-in-three-days event!
+- Excellent paper!
