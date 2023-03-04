@@ -85,7 +85,15 @@ their own EEZ, with five flag states (China, Spain, Taiwan, Japan, and South Kor
 
 **Frölicher et al 2018 Nature**
 
+- Heatwaves are events when SST exceed the 99th percentile with respect to daily satalite observations for a 30yr period. 
 - "Between 1982 and 2016, we detect a doubling in the number of MHW days, and this number is projected to factor of 16 for global warming of 1.5 degrees Celsius relative to preindustrial levels and by a factor 23 for global warming of 2.0 degrees Celsius"...3.1C will be 41x times more MHW.
 - The modeling results when compared with satellite observations gives confidence to the spatial extend of predictions, less so to their duration, cumulative mean intensity or absolute spatial extend.
 - at 3.5C warming, a one-in-a-hundred-days event will become a one-in-three-days event!
 - Excellent paper!
+
+**Smith et al 2021 Science**
+
+- " MHW events exceed US\$800 million in direct losses or >US\$3.1 billion in indirect losses of ecosystem services for multiple years"
+- "discrete warming events, marine heatwaves (MHWs), have increased substantially, with a rise in global annual MHW days of 54% over the past century"
+- " an event is considered a MHW if it lasts for 5 or more days, with tem- peratures warmer than the 90th percentile based on a 30-year historical climatology (41)."
+

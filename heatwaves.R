@@ -35,7 +35,7 @@ event_only <- function(df) {
     # first calculate the climatologies
     clim <- ts2clm(data = df, climatologyPeriod = c("1989-01-01", "2019-12-31"))
     # then the events
-    event <- detect_event(data = clim)
+    event <- detect_event(data = clim, categories = TRUE, climatology = TRUE)
     rm(clim)
     # return only the event metric dataframe of results
     return(event$event)
@@ -89,14 +89,15 @@ system.time(
         # save results to disk
         cat(noquote("  > 3. saving events to csv\n"))
         data.table::fwrite(MHW, file = paste0(datadir, "/MHW_slice_", i, "_",
-                                  slice_df$lon1[i], "-", slice_df$lon2[i], ".csv"))
+                                  slice_df$lon1[i], "-", slice_df$lon2[i], ".csv"),
+                           showProgress = TRUE)
         rm(MHW)
         cat(noquote("SLICE DONE!\n"))
         toc()
         cat(sep="\n\n")
     }
 )
-toc() #38993.427 s = 10.8hrs
+toc() #38993.427 s = 10.8hrs; 14.6hrs with event category detection
 
 
 ## Results are saved on folder data/processed_MHW in csv files per slice.
