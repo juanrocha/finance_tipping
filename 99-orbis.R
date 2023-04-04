@@ -18,16 +18,25 @@ dat <- read_csv(file = "data/fishing_companies_alaskan-pollock.csv") # pollock
 dat <- read_csv(file = "data/fishing_comps_sardina-anchoveta.csv") # sardine-anchovies
 load("data/shr_class.RData")
 
+## Bolivian companies
+dat <- readxl::read_xlsx(path = "data/bolivian-soy-which-are-the-biggest-exporting-companies-in-2020.xlsx", sheet = 1) |> 
+    rename(company = exporter_group)
+dat <- dat |> 
+    # very useful reprex: all caracters from the begining until one finds -i
+    mutate(company = str_remove(company, pattern = "^.*?(?=- )") |> 
+               str_remove("- "))
+
+
 ## Initialize remote driver
 d <- rsDriver(
-    port = 4444L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
+    port = 4445L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
 remDr <- d[["client"]]
 #remDr$open()
 tic()
 remDr$navigate(url = "https://ezp.sub.su.se/login?url=https://orbis4.bvdinfo.com/ip")
 toc() # >40s
 ## Note: working with VPN skips authentification steps! but takes longer to load
-Sys.sleep(3)
+Sys.sleep(30)
 
 ## Authentication
 # me <- remDr$findElement("id", "username")
@@ -48,7 +57,7 @@ remDr$goBack()
 # You need to do the search manually (2-3 loops) until it gives you the option
 # of restarting search again 
 tic()
-for (i in seq_along(dat$company)){
+for (i in 24:length(dat$company)){ #seq_along(dat$company)
     ## Search one company:
     srch <- remDr$findElement("id", "search")
     
@@ -74,7 +83,7 @@ for (i in seq_along(dat$company)){
     opts[[1]]$clickElement() ## need to interveene here manually for first time
     #remDr$acceptAlert() #accepting alert does not work
     
-    Sys.sleep(10)
+    Sys.sleep(20)
     
     
     html <- remDr$getPageSource() |> 
@@ -94,7 +103,7 @@ for (i in seq_along(dat$company)){
         html_attr("href") == "#KEYFINANCIALS"
     opts <-  remDr$findElements("css",'a')
     opts[[which(idx)[1]]]$clickElement()
-    Sys.sleep(3)
+    Sys.sleep(10)
     
     html <- remDr$getPageSource() |> 
         unlist() |> 
@@ -138,8 +147,8 @@ for (i in seq_along(dat$company)){
     wt <- tbls |> html_attr("id")  # tells me which one programatically 
     wt <- which(wt == "Section_CONTROLLINGSHAREHOLDERS_InLines_OwnershipTable")[1]
     
-    shr <- tbls[ifelse(is.na(wt), 6, wt)] |>
-        html_table() # shareholders
+    shr <- ifelse(is.na(wt), "There is no shareholder information", tbls[wt] |>
+        html_table()) # shareholders
     
     ## Get the global ultimate owner. The table also contain IDs for orbis and BvD
     guo_ids <- tbls[1] |> html_table()
@@ -160,7 +169,7 @@ remDr$refresh()
 remDr$closeall()
 
 ## save the list objects for later cleaning
-save(revenues, shr_list, guo_list, file = "data/sardine_anchoveta_orbis.RData")
+save(revenues, shr_list, guo_list, file = "data/bolivia_orbis.RData")
 
 ### Do this after all tables are downloaded
 # shr <- shr[[1]] |> 

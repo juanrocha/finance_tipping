@@ -1,7 +1,7 @@
 library(tidyverse)
 
 
-load("data/alaskan_pollock_orbis.RData")
+load("data/bolivia_orbis.RData")
 dat <- read_csv("data/fishing_companies_alaskan-pollock.csv")
 
 dat
@@ -53,7 +53,7 @@ dat <- dat |>
 ## Shareholers
 shr_list[[1]][[1]][1]
 dat$shr_info <- shr_list |> 
-    map(function(x) x[[1]]$X1[1]) |> 
+    map(function(x) x[[1]][[1]][[1]]) |> 
     map(function(x) str_remove_all(x, "\n|\t")) |> 
     map(function(x) str_replace(x, "Name", "available"))
 
@@ -70,7 +70,7 @@ shr_dat <- shr_list[idx] |>
             slice(3:(n()-1)) |> 
             select(-name0, -name2)
     }) |> 
-    map2(dat$owner_name[idx],function(x,y) {x$company <- y; return(x)}) |> 
+    map2(dat$company[idx],function(x,y) {x$company <- y; return(x)}) |> 
     bind_rows()
 
 shr_dat |>  
@@ -80,5 +80,5 @@ shr_dat |>
     group_by(company) |> 
     summarize(num_shr =n()) |> arrange(desc(num_shr))
  
-
-
+write_csv(shr_dat, file = "data/Bolivia_shareholders.csv")
+write_csv(dat, file = "data/Bolivia_companies.csv")
