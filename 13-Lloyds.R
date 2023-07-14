@@ -6,13 +6,13 @@ library(tictoc)
 
 
 load("data/boats.Rda")
-load("data/vessels/vessels-1001-2000.RData")
+#load("data/vessels/vessels-6001-7000.RData")
 df_boats
 
 
 ## Initialize remote driver
 d <- rsDriver(
-    port = 4440L, browser = "firefox") # should open a chrome
+    port = 4445L, browser = "firefox") # should open a chrome
 remDr <- d[["client"]]
 #remDr$open()
 tic()
@@ -28,7 +28,7 @@ usr$sendKeysToElement(list("frida.bengtsson@su.se"))
 
 pwd <- remDr$findElement("id", 'thePage:siteTemplate:j_id27:password')
 pwd$sendKeysToElement(list(keyring::key_get("maritime", "frida.bengtsson@su.se"), key = "enter"))
-Sys.sleep(10)
+Sys.sleep(6)
 
 btn <- remDr$findElement("css", '.lli-nav__link')
 btn$clickElement()
@@ -39,10 +39,10 @@ btn$clickElement()
 remDr$refresh()
 Sys.sleep(5)
 
-j = 1000 # last iteration in the last saved file.
+j = 16000# last iteration in the last saved file.
 
 tic()
-for (i in 860:1000){
+for (i in 761:875){
     
     srch <- remDr$findElement("class", "lli-searchform__input")
     srch$clickElement()
@@ -51,7 +51,7 @@ for (i in 860:1000){
     
     srch$sendKeysToElement(list(df_boats$boats[[i + j]] |> as.character()))
     # gets the options from the list that appears on the search pane
-    Sys.sleep(15)
+    Sys.sleep(18)
     
     opts <- remDr$findElement("class","lli-typeahead-options__option")
     
@@ -63,7 +63,7 @@ for (i in 860:1000){
            
     opts$clickElement() # click the first one)
 
-    Sys.sleep(20)
+    Sys.sleep(15)
     
     ## Get html of all info on vessel:
     html <- remDr$getPageSource() |> 
@@ -90,10 +90,12 @@ for (i in 860:1000){
     print(glue::glue("Vessel", {i}, "done, next...", .sep = " "))
     
     remDr$goBack()
-    Sys.sleep(15)
+    Sys.sleep(10)
 
 }
 toc() #30min for 40+ records.
 
-save(owners, features, file = "data/vessels/vessels-1001-2000.RData")
+save(owners, features, file = "data/vessels/vessels-16001-end.RData")
+## actually 999
 
+remDr$close()

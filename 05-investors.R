@@ -112,7 +112,9 @@ case_df |> pull(company) |> unique()  # 57 companies
 dat |> pull(company) |> unique() # 99 companies
 
 case_df <- case_df |> 
-    left_join(dat |> rename(shr_country = country, shr_type = type)) ## 6.3k rows with countries; 3.9k without
+    left_join(
+        dat |> rename(shr_country = country, shr_type = type)
+        ) ## 6.3k rows with countries; 3.9k without
 
 case_df |> filter(is.na(guo_final)) |>  pull(company) |> unique() 
 

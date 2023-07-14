@@ -112,3 +112,4 @@ pxls <- out |>
     filter(mp_severe > 0, mp_extreme > 0)
 
 # save(pxls, file = "data/mhw_exposure.Rda")
+load("data/mhw_exposure.Rda")
