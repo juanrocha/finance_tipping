@@ -1,0 +1,421 @@
+---
+title: "Identifying financial actors: marine case"
+author: "Juan Rocha"
+date: "2023-08-15"
+output:
+    html_document:
+      theme:
+        bootswatch: cosmo
+        code_font:
+            google: Fira Code
+      df_print: paged
+      code_folding: hide
+      toc: true
+      toc_float:
+        collapsed: true
+        smooth_control: true
+      toc_depth: 3
+      fig_caption: true
+      fig_align: center
+      highlight: pygments
+      self_contained: false
+      lib_dir: libs
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(tictoc)
+library(patchwork)
+library(here)
+library(fs)
+library(DT)
+library(ggnetwork)
+library(network)
+```
+
+Dear friends,
+
+Here is a short report on the progress of our paper with tentative title: **Identifying financial actors exposed to marine tipping points**. I presented some preliminary results on a conference poster a month ago in Copenhagen. Here I summarize the progress so we can discuss and get input from you on next steps. But first, let's remind ourselves of the research question and data at hand:
+
+> Who is exposed to ecological regime shift risks, and by being exposed, who has the agency or power to invervene and perhaps avoid tipping points?
+
+## Datasets
+
+The analysis builds upon two datasets and knitting a companies data based on publicly accessible databases. The datasets are:
+
+1. Map of areas showing symptoms of resilience loss (Rocha 2022): ~25% of the marine area analyzed shows statistical signatures of resilience loss.
+
+
+```{r rocha22, fig.cap='Marine areas prone to tipping points', echo = FALSE}
+knitr::include_graphics(path = "figures/fig_detection_marine.png")
+```
+
+
+
+2. Areas prone to marine heatwaves (Smith et al 2021): Marine heatwaves are increasing in frequency and intensity, with socioeconomic consequences due to reduction of marine primary productivity. 
+
+![Smith 2021 map on marine heat waves](figures/Smith_2023_MHW.png)
+
+
+But in order to analyze their map, I replicated their analysis using all data from NOAA on sea surface temperature (Smith only uses 3 decades) and created the following map with probabilities of heatwaves according with their severity:
+
+![Heat waves probability (log units)](figures/mhw_probabilities_log.png)
+
+The Global Fish Watch dataset (Kroodsma et al 2018) was used to identify vessels that have operations in pixels with high probability of heatwaves (a driver of regime shifts), or where resilience loss is detected. Out of >70 000 vessels, 16 878 do operate in high risk areas.
+
+Then I used Lloyds (thanks Frida!) to identify owner companies. Out of the 16 878 vessels, I got companies for 2183 of them. Using Orbis I found 793 shareholders for some of the companies. Already now you can see part of our problem: each step we try to go on the chain (vessel - owner - shareholder) we lose observations (one order of magnitude), thus to what extend are results robust? Let's check them first.
+
+## Results
+
+```{r}
+load("data/cleaned_data_230708.Rda")
+load("data/boats_owners.Rda")
+load("data/marine_shareholders.RData")
+## some initial visualizations
+countries <- readr::read_csv(
+    file = "~/Documents/Projects/DATA/WorldBank/SDG_csv/SDGCountry.csv") |> 
+    janitor::clean_names()
+## correct Namibia
+countries[countries$short_name == "Namibia","x2_alpha_code"] <- "NA"
+
+```
+
+Most boats retrieved are indeed fishing boats:
+
+```{r fig.width= 5, fig.height=3, fig.align='center'}
+df_boats |> 
+    ggplot(aes(lli_vessel_type)) +
+    geom_bar() +
+    coord_flip()
+```
+
+However, with Lloyds I can only recovered `r length(owners)` owners, and from that selection, only `r guos |> filter(!is.na(guo)) |> pull(guo) |> length()` have a global ultimate owner. The table below helps you explore the companies for which we have GUOs and the ones missing. **Do you have any suggestions to _automatically_ extract GUOs? e.g. different spelling companies?**
+
+```{r}
+options(DT.options = list(pageLength = 25))
+datatable(guos)
+```
+
+Working with what we have, China is by far the country with most vessels fishing in marine areas prone to ecological tipping points. However, most of shareholders are based in Europe. Shareholders are mainly corporate companies and individual families. Despite Norway has by far most of reported shareholders, they invest mainly in Norwegian companies (we will see below).
+
+```{r desc, fig.width=8, fig.height=4}
+a <- df_boats |> 
+    group_by(flag) |> 
+    summarize(n = n()) |> 
+    arrange(n) |> 
+    filter(n> 300) |> 
+    mutate(flag = case_when(is.na(flag) ~ "Unknown", TRUE ~ flag)) |> 
+    mutate(flag = as_factor(flag)) |> 
+    ggplot(aes(n, flag)) +
+    geom_col() +
+    labs(x = "Number of vessels", y = "Flag", 
+         caption = "Only countries with > 300 vessels shown.\n Data source: Lloyds",
+         tag = "a") +
+    theme_light(base_size = 8)
+b <- shrs |> 
+    filter(!is.na(name)) |> 
+    mutate(country = case_when(is.na(country) ~ "NA", TRUE ~ country)) |> 
+    group_by(country) |>     
+    summarize(n=n()) |> 
+    filter(n>10) |> 
+    left_join(select(countries, short_name, country = x2_alpha_code)) |> 
+    mutate(short_name = case_when(is.na(short_name) ~ "Unknown", TRUE ~ short_name)) |> 
+    arrange(n) |> 
+    mutate(short_name = as_factor(short_name)) |> 
+    ggplot(aes(n, short_name)) +
+    geom_col() +
+    labs(x = "Shareholders", y = "Country of origin", caption = "Data source: Orbis",
+         tag = "b") +
+    theme_light(base_size = 8)
+
+# shareholder types
+c <- shrs |> #pull(type) |> unique()
+    filter(!is.na(name)) |> 
+    mutate(shr_type = case_when(
+        is.na(type) ~ "Missing",
+        type == "A" ~ "Insurance company",
+        type == "B" ~ "Bank",
+        type == "C" ~ "Corporate companies",
+        type == "D" ~ "Unnamed private shareholders",
+        type == "F" ~ "Financial company",
+        type == "G" ~ "Wholesale and retail trade",
+        type == "H" ~ "Self ownership",
+        type == "I" ~ "Individuals or families",
+        type == "J" ~ "Foundation or Research Institute",
+        type == "Z" ~ "Public",
+        type == "L" ~ "Employees/Managers/Directors",
+        type == "M" ~ "Professional, scientific and technical activities",
+        type == "V" ~ "Venture capital",
+        type == "Y" ~ "Hedge fund",
+        type == "P" ~ "Private equity firms",
+        type == "Q" ~ "Branch",
+        type == "W" ~ "Marine vessel",
+        type == "S" ~ "Public authorities, States,\n Governments",
+        type == "E" ~ "Mutual & Pension Fund"
+    )) |> 
+    group_by(shr_type) |> 
+    summarize(n=n()) |> 
+    arrange(n) |> 
+    mutate(shr_type = as_factor(shr_type)) |> 
+    ggplot(aes(n, shr_type)) +
+    geom_col() +
+    labs(x = "Number of shareholders", y="Shareholder type", tag = "c",
+         caption = "Data source: Orbis") +
+    theme_light(base_size = 8)
+
+a + b + c & theme_light(base_size = 8)
+
+```
+
+```{r}
+# correct ownerships:
+shrs <- shrs |> 
+    rename(ownership_direct = owenership_direct) |> 
+    mutate(ownership_direct = case_when(
+        ownership_direct == "WO" ~ "100",
+        ownership_direct == "" ~ NA,
+        ownership_direct == "MO" ~ "50",
+        ownership_direct == "T" ~ "100",
+        ownership_direct == "-" ~ NA,
+        TRUE ~ ownership_direct
+    )) |> #pull(ownership_direct) |> unique()
+    mutate(ownership_total = case_when(
+        ownership_total == "n.a." ~ ownership_direct,
+        ownership_total == "WO" ~ "100",
+        ownership_total == "MO" ~ "50",
+        ownership_total == "CTP" ~ ownership_direct,
+        TRUE ~ ownership_total
+    )) |> #pull(ownership_total) |> unique()
+    mutate(ownership_direct = str_remove_all(ownership_direct, "\\>|\\<"),
+           ownership_total = str_remove_all(ownership_total, "\\>|\\<")) |> 
+    #pull(ownership_total) |> unique()
+    mutate(ownership_direct = as.numeric(ownership_direct),
+           ownership_total = as.numeric(ownership_total))
+```
+
+
+```{r fig.width=5, fig.height=4}
+bip <- shrs |> 
+    select(name, company, ownership_total) |> 
+    filter(!is.na(name)) |> 
+    slice(-338) |>  # problems: the name is the IMO and the shareholder name the same
+    network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
+            ignore.eval=FALSE, loops = TRUE)
+
+# plot(bip, edge.lwd = 0.001, edge.col = alpha("gray75", 0.75),
+#     vertex.col = "orange", vertex.border = 0, vertex.cex = 0.5)
+
+ggplot(ggnetwork::ggnetwork(bip, arrow.gap = 0.005) ,
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(aes(color = ownership_total), size = 0.35, alpha = 1
+               #arrow = arrow(length = unit(2, "pt"), type = "closed")
+               ) +
+    geom_nodes( color = "orange", alpha = 0.4) +
+    labs(title = "Bipartite network",
+         subtitle = "Shareholders and companies", 
+         caption = "Data source: Orbis") + 
+    scico::scale_color_scico(
+        "Total ownership", palette = "berlin",
+        guide = guide_colorbar(barwidth = unit(2,"cm"), barheight = unit(2, "mm")))+
+    theme_blank(base_size = 10) +
+    theme(legend.position = "bottom")
+```
+
+The bipartite network of shareholders connected to companies if we don't have missing data. Please note that we started with over 2700 companies, but not for all there are GUOs, we only have `r shrs |>  filter(!is.na(name)) |> pull(name) |> length()` shareholder - company pairings (links), one of them is a self-link. In other words, I'm not showing the isolates, companies that we identified with Lloyds but for which Orbis did not provided shareholders. The data I'm using to build the network does not distinguish ownership over time, nor name changing. The density of the bipartite network is `r round(network.density(bip),4)`, meaning out of all possible links on the network < 0.1% are realized.
+
+The bipartite network has two one mode projections: a network of shareholders connected to each other if they share investments to the same fishing companies (left), and a network of fishing companies connected to each other if they are invested by the same shareholders (right). As you can see, these networks are also very sparse with very few connections and no "gigant key stone actors" emerging from the data.
+
+```{r fig.width=8, fig.height=4}
+
+a <- shrs |> 
+    ggplot(aes(ownership_total)) +
+    geom_density() +
+    labs(x = "Total ownership (%)", tag = "a") +
+    #scale_x_continuous(labels = scales::label_percent()) +
+    theme_light()
+
+b <- shrs |> 
+    group_by(company) |> 
+    summarize(n = n()) |> 
+    ggplot(aes(n)) + 
+    geom_bar() +
+    scale_y_log10() +
+    labs(x = 'Number of shareholders', y = "Companies", tag = "b") +
+    theme_light()
+
+mat <- bip |> as.sociomatrix() #|> dim()
+
+one <- mat %*% t(mat)
+shr_net <- network(one, directed = FALSE)
+shr_net %e% "w" <- one
+shr_net %v% "outdegree" <- sna::degree(shr_net, gmode = "digraph", cmode = "outdegree")
+
+two <- t(mat) %*% mat
+cmp_net <- network(two, directed = FALSE)
+cmp_net %e% "w" <- two
+cmp_net %v% "outdegree" <- sna::degree(cmp_net, gmode = "digraph", cmode = "outdegree")
+
+# plot(shr_net,edge.lwd = 0.001, edge.col = alpha("gray75", 0.75),
+#     vertex.col = "orange", vertex.border = 0, vertex.cex = 0.5)
+
+c <- ggplot(ggnetwork::ggnetwork(shr_net, arrow.gap = 0.005) ,
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(aes(color = w), size = 0.15, alpha = .5
+               #arrow = arrow(length = unit(2, "pt"), type = "closed")
+               ) +
+    geom_nodes( color = "orange", alpha = 0.4) +
+    scale_size(name = "Outdegree", range = c(0.2,4)) +
+    labs(title = "Network of shareholders",
+         subtitle = "Shareholders are connected if they have shares on the same fishing companies", 
+         caption = "Data source: Orbis") + 
+    scale_color_continuous(
+        "Companies", breaks = c(1,2,3), 
+        guide = guide_colorbar(barwidth = unit(2,"cm"), barheight = unit(2, "mm")))+
+    theme_blank(base_size = 10) +
+    theme(legend.position = "bottom")
+
+e <- ggplot(ggnetwork::ggnetwork(cmp_net, arrow.gap = 0.005) ,
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(aes(color = w), size = 0.15, alpha = .5
+               #arrow = arrow(length = unit(2, "pt"), type = "closed")
+               ) +
+    geom_nodes( color = "orange", alpha = 0.4) +
+    scale_size(name = "Outdegree", range = c(0.2,4)) +
+    labs(title = "Network of companies",
+         subtitle = "Companies are connected if they have shares on the same shareholders", 
+         caption = "Data source: Orbis") + 
+    scale_color_continuous(
+        "Shareholders", 
+        guide = guide_colorbar(barwidth = unit(2,"cm"), barheight = unit(2, "mm")))+
+    theme_blank(base_size = 10) +
+    theme(legend.position = "bottom")
+
+c + e
+```
+
+Because we have location for shareholders and vessel flags, we can also project the data in terms of countries. There is a few reasons to focus the analysis at that level: i) there is actually a network to analyze, ii) countries have the mandate to protect their citizens interests, so the can regulate companies and their investments either locally or through bilateral agreements. The network of countries is plotted below:
+
+
+
+```{r poster, fig.width=8, fig.height=8}
+net <- shrs |> 
+    filter(!is.na(name), !is.na(country)) |> 
+    select(country, name, company) |> 
+    left_join(
+        df_boats |> 
+            select(flag, reg_owner) |> 
+            filter(!is.na(reg_owner)) |> 
+            unique(),
+        by = c("company" = "reg_owner")
+    ) |> 
+    mutate(flag = str_remove_all(flag, " \\(Int. Register\\)")) |> 
+    group_by(country, flag) |> 
+    summarize(n = n()) |># print(n=151)
+    left_join(countries |> 
+                  select(short_name, x2_alpha_code), 
+              by = c("country"= "x2_alpha_code")) |> #print(n = 151)
+    mutate(short_name = case_when(
+        country == "TW" ~ "Taiwan, China",
+        TRUE ~ short_name)) |> 
+    mutate(flag = case_when(
+        flag == "U.K." ~ "United Kingdom",
+        flag == "Republic of Ireland" ~ "Ireland",
+        flag == "U.S.A." ~ "United States",
+        TRUE ~ flag),
+        short_name = case_when(
+            short_name == "Dem. People's Rep. Korea" ~ "South Korea",
+            TRUE ~ short_name
+        )) |> 
+    ungroup() |> 
+    select(from = short_name, to = flag, n) |>
+    filter(!is.na(from)) |> #print(n = 151)
+    network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
+            ignore.eval=FALSE, loops = TRUE)
+
+# network.vertex.names(net)[!network.vertex.names(net) %in% countries$short_name]
+
+# plot(
+#     net,
+#     edge.lwd = 0.001, edge.col = alpha("gray75", 0.75),
+#     vertex.col = "orange", vertex.border = 0, vertex.cex = 2)
+df_stats <- tibble(
+    country = network.vertex.names(net),
+    indegree = sna::degree(net, gmode = "digraph", cmode = "indegree"),
+    outdegree = sna::degree(net, gmode = "digraph", cmode = "outdegree")
+)
+
+df_stats <- df_stats |> 
+    left_join(select(countries, country = short_name, iso2 = x2_alpha_code))
+
+w <- as.sociomatrix(net, "n") 
+diag(w) <- 0
+
+net %e% "w" <- w
+net %v% "loops" <- diag(as.sociomatrix(net, "n") )
+net %v% "label" <-  df_stats |> pull(iso2)
+library(scico)
+
+d <- ggplot(ggnetwork::ggnetwork(net, arrow.gap = 0.005) ,
+       aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_edges(aes(color = w), alpha = 1,
+               arrow = arrow(length = unit(2, "pt"), type = "closed")) +
+    geom_nodes(aes(size = loops), color = "orange", alpha = 1) +
+    geom_text(aes(label = label), size = 2, color = "white") +
+    scale_color_scico(
+        "Shareholders",palette = "berlin", 
+        guide = guide_colorbar(barwidth = unit(4,"cm"), barheight = unit(2, "mm"))) +
+    scale_size(range = c(4,10), breaks = c(0, 100, 200)) +
+    theme_void() + labs(tag = "d") +
+    theme(legend.position = "bottom")
+
+
+df_stats$loops <- net %v% "loops"
+
+f <- df_stats |> 
+    mutate(label = case_when(
+        indegree > 5 | outdegree > 5 ~ country
+    )) |> 
+    ggplot(aes(indegree, outdegree)) +
+    geom_point(aes(size = loops), alpha = 0.5, show.legend = FALSE) +
+    geom_abline(slope = 1, color = "orange", alpha = 0.5) +
+    geom_text(
+        aes(label = label), nudge_y = -0.5, size = 2) +
+    scale_size(range = c(1,10), breaks = c(0, 100, 200)) +
+    theme_light() + labs(tag = "c") +
+    theme(legend.position = "bottom")
+
+((a/b/f) | d) + plot_layout(widths = c(1,3))
+
+```
+
+A few observations worth noticing: most ownership is either 50 or 100% contrary to what we observed in the emergent zoonotic disease paper. Bear in mind that I did not filter out ownership over time, so if a company A is own 100% by B in 2019, and in 2022 it is own by C just because B change name to C or C is actually a different company (sell / buy), they both currently appear on the data. 
+
+Second, most companies have only a few shareholders, just around 10 actually have 5 shareholders or more. Several of the investments are by shareholders on companies in the same countries, on the network these are loops. They are hard to see in the visualization but I scaled node size to correspond to these loops. Norway is the larger country with loops (> 200 shareholders invest in fishing companies inside Norway). For countries where there is actually foreign investments, Spain, UK and France are hot spots of shareholders, while Russia is a hot spot for receiving investments (see panel C).
+
+Below another representation with the loops: 
+
+
+```{r fig.width=8,fig.height=7, dev.args=list(pointsize=6)}
+plot.network(
+    net, label = net %v% "label", label.col = "white",
+    label.pos = 5, label.cex = 1,
+    edge.lwd = 0.001, edge.col = alpha("gray75", 0.75),
+    vertex.col = "orange", vertex.border = 0, 
+    vertex.cex = 2.5)
+```
+
+I ran an exponential random graph model on the country network to explore what influences the likelihood of foreign investment using as predictors World Bank statistics of governance and inequality. The result is below, following the same logic of our EZD paper.
+
+![](figures/poster_ergm.png)
+
+The null model (left) assumes that the only process governing link formation is randomness. The second model (centre) assumes all that matter is the difference between governance indicators across connected countries. And the third model (right) assumes that both differences and the individual attributes are important. The best model is the last one, which predicts that links are more likely to form in countries with higher government efficiency, and the difference in political stability is negative (receiving countries are more unstable than investing ones). In fact, politically stable countries are less likely to form links. All other governance attributes (rule of law, corruption, regulatory quality) do not seem to influence link formation or the likelihood that shareholders makes foreign investments on fishing companies exposed to regime shifts.
+
+## Discussion
+
+1. How do you think we can improve the analysis?
+2. What other data sets and questions can we ask?
+
+In previous discussions we thought of using Eikon to get info on debt, who fund companies? In a preliminary analysis with Peruvian vessels and companies we did not find anything in Eikon. Given the sparsity of the current dataset, I doubt we will find much, but happy to discuss.
+

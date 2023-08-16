@@ -8,6 +8,13 @@ editor_options:
 
 # Notes
 
+*230816*
+
+- Created a report with preliminary data from Lloyds and Orbis. 
+- Data from Kroodsma was used to identify >16k vessels fishing in places prone to tipping
+- Places were extracted from Smith heatwaves methodology replicated on NOAAs temp data and my dataset on resilience loss
+- > 2000 companies identified, and >700 shareholders, but networks are too sparse
+
 *20230202*
 
 - Download the Fishing effort dataset used in Krodsma y Carmine. It contain GPS traces of >70k vessels with some information about ownership. Carmine has addional owners identified but only for high seas vessels.
