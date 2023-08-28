@@ -406,6 +406,8 @@ inv_net <- case_df |>
 
 inv_net %v% "outdegree" <- degree(inv_net, gmode = "digraph", cmode = "outdegree")
 inv_net %v% "indegree" <- degree(inv_net, gmode = "digraph", cmode = "indegree")
+## the lines above are unnecessary, the net is bipartite, in R always undirected so in and out degree are ==
+
 inv_net %v% "bigshark" <- ifelse(
     inv_net %v% "outdegree" >= 20,
     inv_net %v% "vertex.names", NA

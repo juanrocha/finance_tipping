@@ -1,0 +1,169 @@
+---
+title: "Draft response"
+author: "Juan Rocha"
+date: "2023-08-15"
+output:
+    html_document:
+      theme:
+        bootswatch: cosmo
+        code_font:
+            google: Fira Code
+      df_print: paged
+      code_folding: hide
+      toc: true
+      toc_float:
+        collapsed: true
+        smooth_control: true
+      toc_depth: 3
+      fig_caption: true
+      fig_align: center
+      highlight: pygments
+      self_contained: false
+      lib_dir: libs
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+# library(tictoc)
+library(patchwork)
+library(here)
+library(fs)
+# library(DT)
+# library(ggnetwork)
+# library(network)
+```
+
+
+## Letter to editor
+
+
+## Response to reviewers
+
+### Reviewer #1: 
+
+I am happy that the authors have effectively and reasonably address all my substantive comments, and I am therefore happy to recommend acceptance. I recognise, however, that the other reviewers raised a number of other issues, and that a final acceptance decision will also require their assessment. I believe that this revised version improves significantly on many of the issues identified by the other reviewers.
+
+> Thank you for your feedback
+
+
+
+### Reviewer #2:
+
+**General comments.**
+
+Overall, I think the paper has the potential to open a direction of work and I wish the paper can end up being published. I acknowledge that the authors have carried out a substantial revision of the text. However, I am not entirely satisfied with some of the replies and the revisions made so far.
+
+
+
+GC1. The contribution to the existing scientific literature is still not very clear (yes, there is no single one to build on, but it does relate to several ones, e.g. EID, anthropocene, networks, corporate finance). What does the paper brings to these exactly?
+
+> We believe our paper empirically links the risk of emergent zoonotic diseases with companies and their shareholders. Our network mapping will help companies and shareholders to be aware of the risk, while informing countries who can make a difference through their regulatory frameworks. To the best of our knowledge, the link between disesase emergence and corporate operations have not been explicitly made before.
+
+GC2. The answer to question a) (Which specific financial institutions could be said to have influence over changes in such risks through their investments?) is that these are the usual suspects that are find in network analyses of corporate ownership. But it is based on 9 case studies. Can we infer that results could hold for EID in general?
+
+> The influencial actors are likely to be the same. Other studies who rank actors by influence using the full network (Vitali and the refs you suggested) find similar actors (BlackRock, Vanguard, etc). In our case the selection of only 9 cases has to do with making sure the operation of companies do actually increase the risk of zoonotic diseases. So we manually curated companies whose operations imply actions that increase EID such as deforestation or changes in land use in areas that have already been reported to have high risk. Without that manual curation we could err in including many companies whose operations are not changing ecosystems or do not happen in areas of EID risk. But because the global ownership network is relatively stable in its metrics of influence (refs you suggested), the ultimate owners are likely to be similar if we include other sectors of the economy (e.g. banana or cacao production).
+
+GC3. The answer to question b) (In what ways could such financial influence be leveraged to help reduce EID risks globally?) is not very clear to me. The authors have now added a literature review on some aspects of corporate finance and shareholders' activism. They could link the analysis to the ongoing debate on ESG (we saw a big growth in the recent years, but currently a backlash, see e.g. recent Blackrock's view). But, net of this, many passages of the paper remain superficial (e.g. "countries who could work together to leverage financial influence as a means to address EID risks."). Do those country have any incentive to act on EID? Are the authors suggesting a policy proposal? At the moment, I am not sure the paper is provides answers to question b. One options is to play down the claim.
+
+> Thanks for your comment. We see our results useful in three ways. First, for companies, our results make them aware that their operations are putting them at risk of EZDs. So companies can choose to ignore, or relocate some of their operations to low risk areas. Second, from the shareholder perspective, it exposes a different type of risk (EZD) that can be of interst to them. Actors like BlackRock or Vanguard can use our results to i) be aware of the investments that expose them to EZD risk, and ii) decide whether ignore or divest from such companies and re-invest on low risk ones. Now, neither companies producing commodities that increase EZD risk nor their shareholders have any mandate to care about EZDs. Countries do, they have the mandate to protect their citizens and tackle potential emergent problems such as a pandemic. Thus third, our results show which countries are most exposed through the investments that originate in their economies and can apply instruments (policies, taxes, incentives) to avoid EZDs risk. Our paper shows at country level where such efforts are more valuable (which pairs of countries benefit from a bilateral agreement for example). Such instruments have been used in the past to reduce deforestation in the Amazon (e.g. Zero deforestation commitments), or impose sactions (e.g. to Russia for the Ukraine invasion). That is why we focus on countries, they have the mandate to prevent the spreading and emergence of epidemics.
+
+GC4. The authors say the paper opens the way to new work, but it is not clear what is the gap to fill and why it is important to fill it. The paper does not seem to qualify as a comprehensive empirical study. So what do we learn from the 9 cases studies? How generalizable are the results? Is the paper providing a methodology to be applied when more data will be available?
+
+> tbd
+
+GC5. I insist that the fact that the a few US funds appear as most important does not seem EID specific. This is not well addressed in the revision
+
+> Agree, it is not specific to EID. But the valuable information is in reverse. Our results tells the US funds of what investments are exposing the economy to EZDs. That was unknown before our paper.
+
+GC6. The metrics used to assess financial influence are very basic. I had suggested to take into account at least the relative weights, but this was not done. See more below.
+
+> The relative weights have been already taken into consideration when we quantify holdings. We do not use the approach of Vitali and Glattfelder because it requires the full network to quantify the indirect paths. We acknowlege their contribution, but we find it inadequate to answer our research question. More details below.
+
+GC7. About the ERG model, I am still not clear what is the claim made exactly and how is the model helping. See more below.
+
+> Thank you for your comment. We concur that the ERGMs are not sufficiently explained in the text. We have expanded the logic on the text and added a figure to help us explain the logic (e.g. why the ERGMs focus on countries not companies)
+
+GC8. About the network analyses, the results seem similar to what would be found with any sample of 54 firms. Again, it is not clear what do we learn about EID and finance. Maybe we learn that when it comes to finance, EID is similar to other environmental issues, such as climate?
+
+> Your observation is probably true at the level of general features of the network structure (e.g degree distribution, or the distribution of ownership). If we take another issue, the big ultimate owners would have some overlap because it would be a snapshot of the same network. However, if BlackRock wants to divest today from companies that increases the risk of EZD, the list of companies would be different than if they want to divest from companies that causes climate change. Here we provide such list for EZDs. 
+
+**Detailed comments**
+
+C1. About influence of financial investors. The metrics used (degree and betweenness) are too basic and inadequate. The discretized score ( i.e. = 1 if the investor has shares in the company, etc.) is too coarse. In my view it is necessary to use metrics that take into account the relative weight that each GUO has in each company.
+
+> We agree. Our analysis is not purely binary, most of our networks are weighted. We appreciate your comment and have attempted to clarify the three different types of networks used. We presented degree and betweeneess as descriptive statistics of our data. We can use instead an eigenvector based metric as Vitali or Glattfelder propose. We do however find some problems with their approach. Before explaining the problems, let us clarify the three levels of networks used.
+
+> First, our raw data is a bipartite network of companies and shareholders $B_{ij}$. For each link we have direct and total percent of ownership, operational revenue, global ultimate owner, and number of employees. However, the data from Orbis has many missing values. For example, in our raw data of 99 companies, 2310 shareholders, 2041 GUO and 4551 links, % of ownership is missing for 58% of observations and operational revenue for 59%. The amount of missing data limits the applicability of Vitali's approach.
+
+> Second, we have one mode networks where companies are connected if they share shareholders (weighted by number of shareholders), and shareholder connected by companies (weighted by number of companies). The third type of network is centered on countries: two countries are connected if a shareholder in country $i$ has an investment on a company operating in country $j$. ERGMs only apply to the third type of network, which is also weighted.
+
+I have already pointed to the methodology developed in Vitali ea. 2011. It is not correct that it cannot be used "because it requires the entire network". It could be applied also to a partial network as the authors have here. So please revise that incorrect statement.
+
+> We believe the advantage of Vitali and Glattfelder approaches is that their approximate influence by combining direct ownership with indirect ownership derived from the network. To take advantage of their method, for indirect ownership one needs the indirect pathways from the global untimate owner to the companies at hand. This is not provided by Orbis when looking up individual companies. One would need to recursively walk up the network from the seed company to the GUO and there is no guarantee in any case of recovering all possible paths. We do not have the complete Orbis dataset, we only investigated companies for which we could associate their location and key commodities to places with high risk of EZD. Without the indirect pathways, we cannot take advantage of Vitali's or Glattfelders algorithms. 
+
+> We could try to recursively mine and download the data for all shareholders, but we don't think it will add much to our analysis. It will allow us to estimate Glattfelders influence metric, which uses the shorter paths to account for indirect ownership (avoid double counting and problems reported in the past). But we do not think it is an adequate metric of influence for our research question (expanded below).
+
+> We could still estimate the direct portfolio value for each shareholder following eq.5 in their SM, namely multiplying the weighted matrix $W_{ij}$ with the proportion of ownership (with values on the range 0:1) times the operating revenue $v_j$. We find the approach misleading due to missing values of $v_j$ of the Orbis dataset (59% for our sample). So trying to get a sense of the indirect ownership by recursively quering Orbis is unlikely to solve the problem with missing values. For large scale studies like Glattfelder et al, its not problem because they are interested on the emergent features of the network (e.g. bow tie structure or the distribution of ownership or market capitalization); but for a small N study like ours it can be misleading.
+
+I can provide two simpler and maybe more intuitive quantities. The authors could use:
+the Control Index defined in Glattfelder ea. 2009 (Eq. 4) which captures the number of companies "effectively controlled" (meant as synonym of "influenced" there) by each investor.
+
+
+> Thank you for the suggestion and additional references. We find Glattfelder approach useful to map where the money goes. They quantify influece in monetary terms, in their perspective companies with more money are more powerful. For the purpose of their study it is a reasonable assumption; but not for ours. In our study, being able to influence a company by owning some shares means being able to influence their decisions of what to produce, where, and using which practices. Avoiding EZD from a company board perspective means being able to decide whether the soy exported is produced on a deforestation front or a traditional agricultural landscape. Influence in our study happens at the level of company decisions that increase or decrease the risk of EZDs. 
+
+Alternatively, they could use the notion of "portfolio value" defined in Glattfelder ea. 2019, eq 5 page 10 of Supp. Material.
+In particular, I recommend the authors to address the following empirical questions:
+what is the % of the total market capitalization value of the 54 EID relevant companies that are owned by top 5, 10 most influential investors?
+They could also make distribution or a Lorenz curve (see the Glattefelder 2009; Vitali 2011). This will give an idea of how many investors it takes to convince about the relevance of EID in order to get some action at the company board level.
+
+>> to do
+
+
+C2. I recommend to provide some additional descriptive statistics of the sample studied. E.g. What is the % of number and market capitalization of the 54 firms relative to the firms in the same regions and sector? What is the % of activities that the 54 firms derive from the activities deemed to lead to EID risk?
+
+> To answer the first suggestion we need the complete data: all other firms that exist in the region which we have not collected data for. For the latter, Orbis do not provide such data.
+
+C3. Figure 5 A is not very informative. There are no labels and the color code is not very useful (we know the node in the center are those with high degree). Edges are not visible.
+
+> change figure 5
+
+C4. Figure 5 B: I suppose "mean ownership" is the average share of one investor across the 54 companies. Instead of showing the mean the figure could show all the values.
+
+> change for distribution of ownership.
+
+C5. I am not clear about the likelihood statements obtained with the ERG model. Passage paper page 11 "By combining our data with known indicators of "good governance" from the World Bank, and income inequality metrics (Gini) from the World Inequality database, we note that financial institutions seem to avoid investing in companies operating in countries with high corruption and poor regulatory quality, and that government effectiveness increases the likelihood of investments (Figure 6C)."
+
+I still do not understand the statement exactly. In order to estimate that likelihood I presume one would also need the probability of randomly investing in those countries, based on a given number of links and countries/sectors/firms where these links could be assigned. But the sample only contains the 54 EID sensitive firms. So, I miss what is the null model here.
+
+
+
+> Thanks for your comment, it points out the lack of clarity in our writing. When one fits an exponential random graph model, one compares the observed networks with random networks typically generated with a Monte Carlo approach. The most basic null model is the Erdos-Reny which is equivalent of only fitting the probability of a link at random (the term edge in Fig 6). More sophisticated models are created based on hypotheses or expectations derived from theory......
+
+C6 Supp info page page 32: The scientific quality of the section 4 is insufficient. I do not understand how to replicate the computations. Examples:
+"Formally, we assess if the probability of link y in the observed network Y depends on a network configuration (η_A) e.g., a link or node level parameter, and gA(y) is one if the network configuration is present, or zero otherwise; compared against random graphs with similar features (A)." I suppose one of the features of the nodes would be the governance? The text is not clear. The definition of "network configuration" is not provided. A link level is certainly not a network configuration.
+"… compared against random graphs with similar features (A). The summation is over all random graphs' statistics and the parameter κ is a normalising parameters that ensure a proper probability distribution" : are these random graph still among the 54 firms? If so, it is not clear to me what null model this gives. I am happy to be convinced that the model allows to assess likelihood to invest in high governance countries, but I at the moment I fail to see why.
+
+
+
+C7: Passage: "Four financial institutions (Dimensional, Vanguard, BlackRock, and the Government of Norway) have ownership in >40 companies in total, and in three of the selected case study regions (North America, East Asia and Europe)." I suppose this is in line with a random allocation, just because those financial institutions have shares in thousands of listed firms.
+
+
+
+C8. Passage "While these patterns of ownership are not surprising and the result of a broader shift in asset management globally (49) …" These patterns are, in general, in line with the findings of 47. Then specifically, regarding the three US funds, in line with 49.
+
+
+
+C9: "the specific patterns of cross-national ownership depend on the case study region of interest (Figure 4). For example, the importance of investors from Asia and countries like Japan is more prominent in case study regions Southeast Asia compared to Africa and South America." I recommend to expand on this aspect a bit more with some statistics. The charts in Supp Info seem to suggest some regional focus of the investors.
+
+
+
+References:
+
+
+Glattfelder, J.B. and Battiston, S., 2009. Backbone of complex networks of corporations: The flow of control. PHYSICAL REVIEW E Phys Rev E, 80, p.036104.
+
+
+Glattfelder, J. and Battiston, S., 2019. The architecture of power: Patterns of disruption and stability in the global ownership network. Available at SSRN 3314648.
+
