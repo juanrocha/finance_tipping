@@ -26,6 +26,8 @@ dat <- dat |>
 #### Cleaning steps ####
 # Exclude nodes that are not countries:
 no_country <- c("Central Europe", "Eastern Europe", "Middle East", "Southern Europe", "Europe", "Fejér", "Taiwan")
+
+
 case_df <-  df1 %>% unique() |> 
     select(company, commodity, casestudy, country, origin, type) %>% 
     #group_by(origin, country, casestudy) %>% 
@@ -98,6 +100,8 @@ case_df
 
 case_df$company [!case_df$company %in% dat$company] |> unique() # 4 in case_df but not in dat
 dat$company[!dat$company %in% case_df$company] |> unique() # 45 in dat but not in case_df
+
+unique(dat$company)[!unique(dat$company) %in% unique(df1$company)]
 
 case_df |> pull(company) |> unique()  # 57 companies
 dat |> pull(company) |> unique() # 99 companies
@@ -191,50 +195,131 @@ bip_net <- case_df |> ungroup() |>
     )) |> #pull(company) |> unique() |> length()
     select(shareholder, company, ownership, holdings) |> unique() |> 
     filter(!is.na(shareholder)) |> 
+    filter(!shareholder %in% c("Public", "Self Owned")) |> 
     network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, multiple = FALSE)
 
 bib_mat <- bip_net |> as.sociomatrix.sna()
-dim(bib_mat) # 1821 shareholders, 54 companies
+dim(bib_mat) # 1819 shareholders, 54 companies
 
+## bipartite network with all 99 companies regardless of case study
+
+net2 <- dat |> 
+    select(shareholder, company, ownership, holdings, op_revenue) |> 
+    unique() |> 
+    # check missing values
+    # filter(is.na(op_revenue)) # 1858 / 4540 links
+    filter(!shareholder %in% c("Public", "Self Owned")) |> 
+    mutate(pow = (ownership/100)*op_revenue) |> 
+    igraph::graph_from_data_frame(directed = TRUE)
+    # network(directed = TRUE, bipartite = FALSE, matrix.type = "edgelist", 
+    #         ignore.eval=FALSE, multiple = FALSE)
+
+net2
 
 #### Revisions ####
 
 # reviewer wants eigen based metrics of centrality, some of them easier to calculate in weighted form in igraph
 library(igraph)
 
-net <- graph_from_data_frame(
-    d = case_df |> dplyr::select( company,shareholder, ownership, op_revenue),
-    directed = FALSE
+net <- igraph::graph_from_data_frame(
+    d = case_df |> dplyr::select(shareholder, company, ownership, op_revenue),
+    directed = TRUE
     )
+
 
 df_stats <- tibble(
     vertex = get.vertex.attribute(net, "name"),
-    eigen = eigen_centrality(net, directed = FALSE, scale = TRUE, weights = E(net)$ownership)$vector,
+    eigen = eigen_centrality(net, directed = TRUE, scale = TRUE, weights = E(net)$ownership)$vector,
     power = power_centrality(net, rescale = TRUE),
     alpha = alpha_centrality(net, weights = E(net)$ownership) # for directed graphs
 )
 
 df_stats <-  df_stats |> 
     mutate(class = ifelse(
-        vertex %in% (case_df |> pull(company) |> unique()) , "company",
+        vertex %in% (case_df |> pull(company) |> unique()), # this line for case_df
+       #vertex %in% unique(dat$company),
+       "company",
         "shareholder"
     )) 
 
 df_stats |> 
-    ggplot(aes(power, eigen)) +
+    ggplot(aes(power, alpha)) +
     geom_point(aes(color = class), size = 0.5, alpha= 0.5)
 
-## create figure with multiple versions of power for reviewer
+df_stats |> 
+    select(-eigen) |> 
+    pivot_longer(cols = power:alpha, names_to = "variable", values_to = "values") |> 
+    group_by(variable) |> 
+    top_n(n = 25) |> 
+    ggplot(aes(values, vertex)) +
+    geom_col(aes(fill = class), position = "stack") +
+    tidytext::scale_y_reordered() +
+    facet_wrap(~variable, scales = "free") +
+    theme_light(base_size = 6)
 
-case_df |> 
+a <- df_stats |> 
+    mutate(class = as_factor(class)) |> 
+    top_n(25, wt = power) |> 
+    arrange(power) |> 
+    mutate(vertex = as_factor(vertex)) |> 
+    ggplot(aes(power, vertex)) +
+    geom_col(aes(fill = class)) +
+    scale_fill_manual(values = c("goldenrod")) + 
+    labs(tag = "A", y = "Actors", x = "Power centrality") +
+    theme_light(base_size = 6) +
+    theme(legend.position = c(0.7, 0.1), legend.key.size = unit(2,"mm"),
+          axis.text.x = element_text(size = 4))
+
+b <- df_stats |> 
+    mutate(class = as_factor(class)) |> 
+    top_n(25, wt = alpha) |> 
+    arrange(alpha) |> 
+    mutate(vertex = as_factor(vertex)) |> 
+    ggplot(aes(alpha, vertex)) +
+    geom_col(aes(fill = class)) +
+    scale_fill_manual(values = c("lightblue")) +
+    labs(tag = "B", y = "Actors", x = "Alpha centrality") +
+    theme_light(base_size = 6) +
+    theme(legend.position = c(0.7, 0.1), legend.key.size = unit(2,"mm"),
+          axis.text.x = element_text(size = 4))
+
+c <- case_df |>  #dat |> #
+    select(company, shareholder, ownership, op_revenue, guo_final) |> 
+    unique() |> 
+    group_by(shareholder) |>
+    mutate( p = (ownership / 100) * op_revenue) |> 
+    # ungroup() |> group_by(guo_final) |> 
+    summarize(power = sum(p, na.rm = TRUE)) |> 
+    arrange(desc(power)) |> 
+    top_n(25) |> 
+    mutate(shareholder = as_factor(shareholder) |> fct_rev()) |> 
+    ggplot(aes(power, shareholder)) +
+    geom_col() +
+    labs(x = "Portfolio value\nmillions US$", y = "Shareholders", tag = "C") +
+    theme_light(base_size = 6) + theme(axis.text.x = element_text(size = 4))
+
+d <- case_df |> #dat |> #
     select(company, shareholder, ownership, op_revenue, guo_final) |> 
     unique() |> 
     group_by(shareholder) |>
     mutate( p = (ownership / 100) * op_revenue) |> 
     ungroup() |> group_by(guo_final) |> 
     summarize(power = sum(p, na.rm = TRUE)) |> 
-    arrange(desc(power))
+    arrange(desc(power)) |> 
+    top_n(25) |> 
+    mutate(guo_final = as_factor(guo_final) |> fct_rev()) |> 
+    ggplot(aes(power, guo_final)) +
+    geom_col() +
+    labs(x = "Portfolio value\nmillions US$", y = "Global Ultimate Owners", tag = "D") +
+    theme_light(base_size = 6) + theme(axis.text.x = element_text(size = 4))
+
+
+ggsave(
+    plot = (a+b)/(c+d), 
+    path = "figures/", file = "fig5_key_actors_54comps.png",
+    dpi = 500, bg = "white", width = 7.5, height = 6
+)
 
 library(naniar)
 
@@ -244,8 +329,16 @@ case_df |>
     unique() |> 
     group_by(shareholder) |> 
     mutate( p = (ownership / 100) * op_revenue) |>
-    ggplot(aes(p, ownership)) +
-    geom_miss_point(alpha = 0.5)
+    ggplot(aes(ownership, p)) +
+    geom_miss_point(alpha = 0.5) + 
+    geom_vline(xintercept = 20, color = "orange", linetype = 2) +
+    labs(y = "Portfolio value\n million US$", x = "Ownership in %") +
+    theme_light(base_size = 6)
+
+ggsave(
+    file = "figures/fig_reviewer.png", device = "png", plot = last_plot(),
+    width = 3, height = 2.5, dpi = 500, bg = "white"
+)
 
 df_summary <- case_df |> 
     select(company, shareholder, ownership, op_revenue, guo_final, 
@@ -262,28 +355,97 @@ df_summary <- case_df |>
 
 df_summary |> 
     ggplot(aes(mean_own, mean_rev)) +
-    geom_miss_point() +
+    geom_miss_point(size = 0.5, alpha = 0.5) +
     geom_errorbarh(
         aes(xmin = min_own, xmax = max_own), 
         color = "grey50", linewidth = 0.25) +
-    geom_errorbar(
-        aes(ymin = min_rev, ymax = max_rev),
-        data = df_summary |> 
-            filter(min_rev != -Inf, max_rev != Inf) |> 
-            filter(!is.na(mean_rev)),
-        color = "gold", linewidth = 2) 
+    # geom_errorbar(
+    #     aes(ymin = min_rev, ymax = max_rev),
+    #     data = df_summary |> 
+    #         filter(min_rev != -Inf, max_rev != Inf) |> 
+    #         filter(!is.na(mean_rev)),
+    #     color = "gold", linewidth = 2) +
+    labs(x = "Mean ownership", y = "Mean revenue") +
+    theme_light(base_size = 6)
+
+ggsave(
+    file = "figures/fig_reviewer2.png", device = "png", plot = last_plot(),
+    width = 3, height = 2.5, dpi = 500, bg = "white"
+)
 
 
 # weighted bipartite matrix
-case_df |> 
+sm_fig <- case_df |> 
     mutate(
         company = fct_reorder(company, ownership, mean, na.rm = TRUE),
         shareholder = fct_reorder(shareholder, ownership, mean, na.rm = TRUE)
-        ) |> #pull(company) |> unique() |> length()
+    ) |> #pull(company) |> unique() |> length()
     ggplot(aes(shareholder, company)) +
     geom_tile(aes(fill = ownership)) +
-    scale_fill_viridis_c(na.value = "grey50") +
+    scale_fill_viridis_c(
+        na.value = "grey50",
+        guide = guide_colorbar(
+            barwidth = unit(2, 'mm'), barheight = unit(3, 'cm')
+        )) +
     theme_light(base_size = 6) +
     theme(axis.text.x = element_blank())
 
+# ggsave(
+#     sm_fig, path = "figures/", file = "sm_ownership_matrix.png",
+#     dpi = 500, width = 6, height = 5, bg = "white"
+# )
 
+#### Revising raw data ####
+## this is how the data was read and imported:
+fls <- dir_ls("data/Paulas_files/Financial_actors/")
+dat <- map(
+    fls,
+    function(x) {
+        x |> 
+            read_delim(
+                delim = ";", col_types = "cccccccccc", name_repair = "minimal",
+                col_names = c("company", "name", "pas", "type", "direct_percent", "total_percent", "source", "date", "op_revenue", "employees"),
+                skip = 1, na = c("n.d.", "-")) |> 
+            janitor::clean_names() }
+) 
+
+dat <- map2(
+    .x = dat, .y=fls, .f = function(x,y) {
+        x$file_name <- y; 
+        return(x)}
+)
+
+dat <- dat |> 
+    bind_rows() 
+
+# dat |> 
+#     mutate(file_name = str_remove(file_name, "data/Paulas_files/Financial_actors/")) |> 
+#     select(file_name, company) |> 
+#     unique()
+
+dat <- dat |> 
+    filter(company != "") |> # 2 empty rows
+    mutate(
+        company = str_to_title(company),
+        name = str_to_title(name),
+        total_percent = str_remove_all(total_percent, pattern = "±")
+    ) |> 
+    mutate(
+        total_percent = as.numeric(total_percent),
+        direct_percent = as.numeric(direct_percent), 
+        date = lubridate::my(date),
+        op_revenue = as.numeric(op_revenue),
+        employees = as.numeric(employees)
+    )
+
+
+
+skimr::skim(dat)
+
+# save(dat, file = "data/investors_cleaned.RData")
+
+df1 <- readxl::read_xlsx(
+    path = "data/Paulas_files/001-Drivers_Increasing_Risk_ED.xlsx",
+    sheet = 2,
+    na = "NA") %>% 
+    janitor::clean_names()

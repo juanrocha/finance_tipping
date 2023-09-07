@@ -127,6 +127,7 @@ unique(case_df$shareholder) %in% shr_class$shareholder |> sum()
 
 # file seave upon Paula and Bianca request:
 #save(case_df, file = "data/230823_companies-case_study.Rda")
+#write_csv(case_df, file = "data/230823_cases_dataframe.csv")
 
 case_df |> 
     group_by(shareholder, casestudy) |> 

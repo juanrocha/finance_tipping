@@ -143,6 +143,7 @@ dat |>
 ## but a reasonable approach is to keep the most recent record only; or the max
 ## if reported on the same date
 dat |> 
+    unique() |> 
     group_by(company, shareholder) |> 
     add_count() |> 
     filter(n > 1) |> 
@@ -150,7 +151,8 @@ dat |>
     print(n = 45) 
     
 
-dat <- dat |> 
+dat <-  dat |> 
+    unique() |> 
     mutate(shareholder = str_to_title(shareholder),
            guo_orbis = str_to_title(guo_orbis),
            guo_final = str_to_title(guo_final))|> 
@@ -159,7 +161,7 @@ dat <- dat |>
     mutate(ownership = pmax(direct_percent, total_percent, na.rm = TRUE),
            is_max = (ownership == max(ownership, na.rm = TRUE)))
 
-dat |> filter(count >1) |>arrange(desc(shareholder)) |> print(n = 45)
+dat |> filter(count >1) |> arrange(desc(shareholder)) |> print(n = 45)
 dat |> filter(count == 1, is.na(is_max)) # there is 298 records with no ownership (NA in direct and total %)
 
 dat <- dat |> 
@@ -177,7 +179,7 @@ dat |>
 dat |> filter(company == "Bio Pappel S.a.b") ## It seems that it double counts when accounting for individual persons
 dat |> filter(company == "Th Plantations Berhad") |> #print(n=32)
     filter(direct_percent> 70 | total_percent > 70) |> 
-    select(shareholder) ## It seem32)here was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.\
+    select(shareholder) ## It seems there was a big move of shares ~70% from one owner to another. Since we don't know who sold, we only keep the most recent data for this case.\
 ## three
 dat |> filter(company == "Nine Dragons Paper (Holdings) Limited") 
     
@@ -197,6 +199,13 @@ dat <- dat |>
 dat |> 
     ungroup() |> 
     group_by(company, guo_final) |> 
+    summarize(total_own = sum(ownership)) |> 
+    arrange(desc(total_own)) ## Nothing above 100%
+
+## J230906: Adding Alice test
+dat |> 
+    ungroup() |> 
+    group_by(company, shareholder) |> 
     summarize(total_own = sum(ownership)) |> 
     arrange(desc(total_own)) ## Nothing above 100%
 

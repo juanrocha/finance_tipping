@@ -317,10 +317,20 @@ dat <- map(
     janitor::clean_names() }
 ) 
 
+dat <- map2(
+    .x = dat, .y=fls, .f = function(x,y) {
+        x$file_name <- y; 
+        return(x)}
+    )
 
 dat <- dat |> 
   bind_rows() 
   
+# dat |> 
+#     mutate(file_name = str_remove(file_name, "data/Paulas_files/Financial_actors/")) |> 
+#     select(file_name, company) |> 
+#     unique()
+
 dat <- dat |> 
   filter(company != "") |> # 2 empty rows
   mutate(
