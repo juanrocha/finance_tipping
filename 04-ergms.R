@@ -297,7 +297,7 @@ fig5c <- fits |>
         guide = guide_legend(title.position = "top", keywidth = unit(2,"mm"), 
                              keyheight = unit(2, "mm"))) +
     facet_wrap(~model, ncol = 5) +
-    labs(tag = "C") +
+    labs(tag = "C", x = "Odds of forming a link in the network", y = "Network terms: node or edge attributes") +
     theme_linedraw(base_size = 6) +
     theme(legend.position = c(0.15,0.25))
 fig5c
@@ -560,7 +560,8 @@ toc() # 722s
 #         nodeicov("regulatory_qual" ) + nodeicov("rule_law") + 
 #         nodeicov("gini") )
 
-save(f0,f1,f2,f3, net_countries, shr_net, s0, s1, s2, file = "simple_ergms.RData")
+#save(f0,f1,f2,f3, net_countries, shr_net, s0, s1, s2, file = "simple_ergms.RData")
+
 
 fits2 <- list(s0, s1, s2)
 fit_name2 <- c("null", "difference","full")
@@ -740,8 +741,8 @@ world_map
 #world_map/(fig5b+fig5c) + plot_layout(heights = c(1.5,1))
 ggsave(
     plot = (world_map / fig5b) / fig5c + plot_layout(heights = c(1.5,1,1)),
-    filename = "figures/shr_net_map_v2.png",
-    device = "png", width = 7, height = 5, dpi = 400, bg = "white"
+    filename = "figures/fig6_shr_net_map.pdf",
+    device = "pdf", width = 7, height = 5, dpi = 400, bg = "white"
 )
 
 a <- df_stats |> 

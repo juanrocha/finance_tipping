@@ -11,7 +11,7 @@ owners <- df_boats |>
 
 ## Initialize remote driver
 d <- rsDriver(
-    port = 4442L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
+    port = 4440L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
 remDr <- d[["client"]]
 #remDr$open()
 tic()
@@ -38,8 +38,10 @@ Sys.sleep(30)
 remDr$goBack()
 # You need to do the search manually (2-3 loops) until it gives you the option
 # of restarting search again 
+# guos_missing comes from script 17
+owners <- guos_missing # only run for second batch, trying to recover companies missed on the first round
 tic()
-for (i in 2114:length(owners)){ #seq_along(dat$company)
+for (i in 1:length(owners)){ #seq_along(dat$company)
     tic()
     ## Search one company:
     srch <- remDr$findElement("id", "search")
@@ -157,5 +159,5 @@ remDr$refresh()
 remDr$closeall()
 
 ## save the list objects for later cleaning
-save(revenues, shr_list, guo_list, file = "data/marine_shareholders.RData")
+save(revenues, shr_list, guo_list, guos_missing, file = "data/marine_shareholders_missing.RData")
 

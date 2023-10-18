@@ -229,19 +229,50 @@ net <- igraph::graph_from_data_frame(
 
 
 df_stats <- tibble(
-    vertex = get.vertex.attribute(net, "name"),
-    eigen = eigen_centrality(net, directed = TRUE, scale = TRUE, weights = E(net)$ownership)$vector,
-    power = power_centrality(net, rescale = TRUE),
-    alpha = alpha_centrality(net, weights = E(net)$ownership) # for directed graphs
+    vertex = igraph::get.vertex.attribute(net2, "name"),
+    eigen = eigen_centrality(net2, directed = TRUE, scale = TRUE, weights = E(net2)$ownership)$vector,
+    power = power_centrality(net2, rescale = TRUE),
+    alpha = alpha_centrality(net2, weights = E(net2)$ownership) # for directed graphs
 )
 
 df_stats <-  df_stats |> 
-    mutate(class = ifelse(
-        vertex %in% (case_df |> pull(company) |> unique()), # this line for case_df
-       #vertex %in% unique(dat$company),
+    mutate(class_comp = ifelse(
+        #vertex %in% (case_df |> pull(company) |> unique()), # this line for case_df
+       vertex %in% unique(dat$company),
        "company",
         "shareholder"
     )) 
+
+df_stats <- df_stats |> 
+    left_join(
+        dat |> select(shareholder, type) |> unique(),
+        by = c('vertex' = "shareholder")
+    )  |> 
+    rename(shr_type = type) |> 
+    # below the orginal Orbis classification
+    mutate(shr_type = case_when(
+        is.na(shr_type) ~ "Missing",
+        shr_type == "A" ~ "Insurance company",
+        shr_type == "B" ~ "Bank",
+        shr_type == "C" ~ "Corporate companies",
+        shr_type == "D" ~ "Unnamed private shareholders",
+        shr_type == "F" ~ "Financial company",
+        #shr_type == "G" ~ "Wholesale and retail trade",
+        shr_type == "H" ~ "Self ownership",
+        shr_type == "I" ~ "One or more known individuals or families",
+        shr_type == "J" ~ "Foundation or Research Institute",
+        shr_type == "Z" ~ "Public",
+        shr_type == "L" ~ "Employees/Managers/Directors",
+        shr_type == "M" ~ "Professional, scientific and technical activities",
+        shr_type == "V" ~ "Venture capital",
+        shr_type == "Y" ~ "Hedge fund",
+        shr_type == "P" ~ "Private equity firms",
+        shr_type == "Q" ~ "Branch",
+        shr_type == "W" ~ "Marine vessel",
+        shr_type == "S" ~ "Public authorities, States, Governments"
+        #shr_type == "" ~ "I"
+    )) 
+    
 
 df_stats |> 
     ggplot(aes(power, alpha)) +
@@ -259,20 +290,20 @@ df_stats |>
     theme_light(base_size = 6)
 
 a <- df_stats |> 
-    mutate(class = as_factor(class)) |> 
+    mutate(class = as_factor(shr_type)) |> 
     top_n(25, wt = power) |> 
     arrange(power) |> 
     mutate(vertex = as_factor(vertex)) |> 
     ggplot(aes(power, vertex)) +
-    geom_col(aes(fill = class)) +
-    scale_fill_manual(values = c("goldenrod")) + 
+    geom_col(aes(fill = shr_type)) +
+    scale_fill_brewer("Shareholder type", palette = "Set2", na.value = "grey50" ) + 
     labs(tag = "A", y = "Actors", x = "Power centrality") +
     theme_light(base_size = 6) +
-    theme(legend.position = c(0.7, 0.1), legend.key.size = unit(2,"mm"),
+    theme(legend.position = c(0.7, 0.2), legend.key.size = unit(2,"mm"),
           axis.text.x = element_text(size = 4))
 
 b <- df_stats |> 
-    mutate(class = as_factor(class)) |> 
+    mutate(class = as_factor(class_comp)) |> 
     top_n(25, wt = alpha) |> 
     arrange(alpha) |> 
     mutate(vertex = as_factor(vertex)) |> 
@@ -311,14 +342,14 @@ d <- case_df |> #dat |> #
     mutate(guo_final = as_factor(guo_final) |> fct_rev()) |> 
     ggplot(aes(power, guo_final)) +
     geom_col() +
-    labs(x = "Portfolio value\nmillions US$", y = "Global Ultimate Owners", tag = "D") +
+    labs(x = "Portfolio value\nmillions US$", y = "Unique shareholders", tag = "D") +
     theme_light(base_size = 6) + theme(axis.text.x = element_text(size = 4))
 
 
 ggsave(
     plot = (a+b)/(c+d), 
-    path = "figures/", file = "fig5_key_actors_54comps.png",
-    dpi = 500, bg = "white", width = 7.5, height = 6
+    path = "figures/", file = "fig5_key_actors_99comps.pdf",
+    dpi = 500, bg = "white", width = 7.5, height = 6, device = "pdf"
 )
 
 library(naniar)
@@ -384,16 +415,45 @@ sm_fig <- case_df |>
     geom_tile(aes(fill = ownership)) +
     scale_fill_viridis_c(
         na.value = "grey50",
-        guide = guide_colorbar(
+        guide = guide_colorbar(title = "Ownership %",
             barwidth = unit(2, 'mm'), barheight = unit(3, 'cm')
-        )) +
+        )) + labs(tag = "A") +
     theme_light(base_size = 6) +
     theme(axis.text.x = element_blank())
 
-# ggsave(
-#     sm_fig, path = "figures/", file = "sm_ownership_matrix.png",
-#     dpi = 500, width = 6, height = 5, bg = "white"
-# )
+sm_fig_zoom <- case_df |> 
+    select(company, shareholder, ownership, shr_type2) |> 
+    unique() |> 
+    group_by(shareholder) |> 
+    mutate(n = n()) |> 
+    filter(n>20) |> 
+    ungroup() |> 
+    mutate(
+        company = fct_reorder(company, ownership, mean, na.rm = TRUE),
+        shareholder = fct_reorder(shareholder, ownership, mean, na.rm = TRUE)
+    ) |> #pull(company) |> unique() |> length()
+    ggplot(aes(shareholder, company)) +
+    geom_tile(aes(fill = ownership)) +
+    scale_fill_viridis_c(
+        na.value = "grey50",
+        guide = guide_colorbar(title = "Ownership %",
+            barwidth = unit(2, 'mm'), barheight = unit(3, 'cm')
+        )) + labs(tag = "B") +
+    theme_light(base_size = 6) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## for writing
+case_df |> 
+    select(company, shareholder, ownership, shr_type2) |> 
+    unique() |> 
+    group_by(shareholder) |> 
+    summarize(n = n()) |> 
+    arrange(desc(n)) 
+
+ggsave(
+    sm_fig + sm_fig_zoom, path = "figures/", file = "sm_ownership_matrix_2.png",
+    dpi = 500, width = 7.5, height = 6, bg = "white"
+)
 
 #### Revising raw data ####
 ## this is how the data was read and imported:

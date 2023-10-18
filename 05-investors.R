@@ -376,9 +376,9 @@ b <- case_df |>
 # 
 ## figure for paper
 ggsave(
-    filename = "Fig3_top_shareholders.png",
+    filename = "Fig3_top_shareholders.pdf",
     plot = a+b,
-    device = "png",
+    device = "pdf",
     path = "figures/",
     width = 6.5, height = 4,
     bg = "white", dpi = 400
@@ -495,8 +495,8 @@ m <- shr_mat > 1 # threshold is at least 1, with 0 I get over 1M links and 500Mb
 diag(m) <- 0
 shr_net <- network(m, directed = FALSE)
 shr_net %e% "comps" <- shr_mat
-shr_net %v% "degree" <- degree(shr_net, gmode = "graph")
-shr_net %v% "betweenness" <- betweenness(shr_net, gmode = "graph")
+shr_net %v% "degree" <- sna::degree(shr_net, gmode = "graph")
+shr_net %v% "betweenness" <- sna::betweenness(shr_net, gmode = "graph")
 
 p0 <- ggplot(ggnetwork(
     # for visualization, delete isolates
