@@ -70,6 +70,10 @@ opitions AHS markets: IMO global record of fishing vessles,. globalrecord.fao.or
 
 ## Readings
 
+*[Hobday et al 2023 Nature](https://doi.org/10.1038/d41586-023-02730-2)*
+
+_"Worryingly, the climate crisis could eventu- ally cause oceans to reach a permanent heat- wave state relative to historical baselines11, and some regions might no longer support certain species and ecosystems. The eco- systems that emerge might not operate and respond to warmer waters in ways that can be anticipated12."_
+
 *Carmine 2020 OneEarth*
 - Combining satellite data with other public databases, our analysis showed 1,120 corporate actors owned 2,482 high seas fishing vessels in 2018 ($2/3 of total detected ves- sels). The industry is consolidated with 100 companies representing 36% of high seas fishing effort.
 - China, the fishing entity of Taiwan, Japan, Indonesia, Spain, and the Republic of Korea accounting for 77% of the identified global high seas fishing fleet and 80% of all high seas fishing effort for 2016.
