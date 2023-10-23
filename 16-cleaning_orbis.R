@@ -7,6 +7,8 @@ library(patchwork)
 load("data/boats_owners.Rda")
 load("data/marine_shareholders.RData")
 
+load("data/marine_shareholders_missing.RData")
+
 df_boats
 
 owners <- df_boats |>
@@ -156,10 +158,11 @@ guos <- bind_rows(guos)
 revs <- bind_rows(revs)
 
 
-guos$company <- owners[1:2181] # the last two are missing for now
-revs$company <- owners[1:2181]
+guos$company <- guos_missing #owners[1:2181] # the last two are missing for now
+revs$company <- guos_missing #owners[1:2181]
 
-shrs <- map2(shrs, owners[1:2181], function(x,y) {x$company <- y; return(x)})
+shrs <- map2(shrs, guos_missing, # owners[1:2181], 
+             function(x,y) {x$company <- y; return(x)})
 shrs <- bind_rows(shrs)
 
 shrs |> filter(!is.na(name)) |> 
@@ -176,8 +179,37 @@ guos |> filter(is.na(orbis_id)) # 1189
 ## save the data for now and try to recover more from Orbis later with advise from 
 ## the team
 
-
+# first file for the first round of mining data
 save(shrs, revs, owners, guos, file = "data/cleaned_data_230708.Rda")
+# second file for the second round of mining data
+save(shrs, revs, guos, owners, file = "data/cleaned_data_231023.Rda")
+
+# merge them
+# first change names of the second round objects
+guos2 <- guos
+revs2 <- revs
+shrs2 <- shrs
+
+# now load the old objects
+load("data/cleaned_data_230708.Rda")
+
+## merge dropping missing values, you can always recover the missing owners with 
+## owners %in% df-of-interest$company
+guos <- bind_rows(
+    guos |> filter(!is.na(orbis_id)), guos2 |> filter(!is.na(orbis_id)))
+revs <- bind_rows(revs |> filter(!is.na(latest_year)), revs2 |> filter(!is.na(latest_year)))
+shrs <- bind_rows(shrs |> filter(!is.na(name)), shrs2 |> filter(!is.na(name)))
+
+# now save again, file with new date contains the most recent combined.
+
+# recover the list of missing companies:
+df_missing <- tibble(
+    company = guos2 |> filter(is.na(orbis_id)) |> pull(company)
+)
+
+write_csv(df_missing, file = "data/missing_owners.csv")
+
+
 
 ## some initial visualizations
 countries <- readr::read_csv(

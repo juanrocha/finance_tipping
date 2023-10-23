@@ -22,3 +22,28 @@ guos_missing <- guos |>
 
 ### Now with gous_missing run 15-shareholders.R again
 
+
+#### Compare with Carmine's dataset ####
+car_dat <- read_csv(file = "~/Documents/Projects/high-seas-corporations/data/03_output/HS_fishing_vessels_with_corp_actors.csv")
+car_dat <- readxl::read_xlsx(path = "~/Documents/Projects/high-seas-corporations/data/02_processed/corp_info_HS_fishing_vessels.xlsx", sheet = 1)
+
+car_dat |> names()
+
+car_dat |> 
+    select(year, MMSI, best_flag, best_vessel_class, gfw_owner, owner:last_col())
+
+
+
+missing_mmsi <- df_boats |> 
+    filter(is.na(reg_owner)) |> 
+    pull(mmsi)
+
+(missing_mmsi %in% car_dat$MMSI) |> sum() # 2244
+(df_boats |> filter(!is.na(reg_owner)) |> pull(mmsi) %in% car_dat$MMSI) |> sum() #840
+
+# filter only boats that appear on our dataset of vessels fishing on risk areas
+car_dat <- car_dat |> 
+    filter(MMSI %in% missing_mmsi) |> 
+    select(MMSI, owner, gfw_owner)
+
+### Now with car_dat run 15-shareholders.R again
