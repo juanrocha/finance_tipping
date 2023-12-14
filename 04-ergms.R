@@ -264,9 +264,9 @@ fits <- map2(fits, fit_name, function(x,y) {x$model <- y; return(x)})
 fig5c <- fits |> 
     bind_rows() |> 
     mutate(p_value = case_when(
-        p.value < 0.05 ~ "p < 0.05",
-        p.value > 0.05 & p.value <= 0.1 ~ "p < 0.1",
-        p.value > 0.1 ~ "p > 0.1")) |> 
+        p.value < 0.001 ~ "p < 0.001",
+        p.value > 0.001 & p.value <= 0.05 ~ "p < 0.05",
+        p.value > 0.05 ~ "p > 0.05")) |> 
     mutate(term = case_when(
         term == "edges" ~ "Edges",
         term == "diff.t-h.corruption" ~ "Difference in corruption",
@@ -708,6 +708,25 @@ df_attr <- df_attr |>
 
 shr_net %v% "community" <- as.numeric(df_attr2$comm)
 
+
+### Pull tables for editors:
+case_df |>  # this is the shareholder network
+    group_by(shr_country, country) |> 
+    summarize(n = n()) |> 
+    left_join(df_attr |> select(country = nodes, comp_country = isoa2)) |> 
+    select(shr_country, comp_country, n) |> 
+    filter(!is.na(shr_country)) |> 
+    left_join(df_attr2 |> select(shr_country = nodes, comm)) |> 
+    filter(shr_country == "NO") |> 
+    arrange(desc(n))
+    write_csv(file = "data/table_fig_sm_shareholders.csv")
+
+net_edgelist |> 
+    left_join(df_attr |> select(origin = nodes, comm2)) |> 
+    filter(origin == "Norway") |> 
+    arrange(desc(channel))
+    write_csv(file = "data/table_fig_5_companies-communities.csv")
+
 ## maps
 library(sf)
 library(spData)
@@ -741,7 +760,7 @@ world_map
 #world_map/(fig5b+fig5c) + plot_layout(heights = c(1.5,1))
 ggsave(
     plot = (world_map / fig5b) / fig5c + plot_layout(heights = c(1.5,1,1)),
-    filename = "figures/fig6_shr_net_map.pdf",
+    filename = "figures/fig4_shr_net_map.pdf",
     device = "pdf", width = 7, height = 5, dpi = 400, bg = "white"
 )
 
@@ -845,3 +864,19 @@ ggsave(
     width = 7, height = 5,
     bg = "white", dpi = 400
 )  
+
+
+### edits requests:
+prbl <- fig5b$data |>
+    select(nodes, indegree, outdegree ) |>
+    filter(outdegree < 10, indegree < 12) |> 
+    arrange(indegree) |> 
+    split(~indegree) |> 
+    map(function(x) pull(x, nodes)) 
+
+for (i in 1:length(prbl)){
+    prbl[[i]] |> cat(sep = ";")
+}
+prbl[[1]] |> cat(sep = "; ")
+prbl[[1]] |> str_flatten(collapse = "; ")
+prbl |> map(function(x) str_flatten(x, collapse = "; ", last = " and "))

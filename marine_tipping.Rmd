@@ -70,7 +70,7 @@ Then I used Lloyds (thanks Frida!) to identify owner companies. Out of the 16 87
 ## Results
 
 ```{r}
-load("data/cleaned_data_230708.Rda")
+load("data/cleaned_data_231023.Rda")
 load("data/boats_owners.Rda")
 load("data/marine_shareholders.RData")
 ## some initial visualizations
@@ -309,7 +309,7 @@ net <- shrs |>
             filter(!is.na(reg_owner)) |> 
             unique(),
         by = c("company" = "reg_owner")
-    ) |> 
+    ) |> filter(!is.na(flag)) |> 
     mutate(flag = str_remove_all(flag, " \\(Int. Register\\)")) |> 
     group_by(country, flag) |> 
     summarize(n = n()) |># print(n=151)

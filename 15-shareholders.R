@@ -9,9 +9,12 @@ owners <- df_boats |>
     filter(!is.na(reg_owner)) |> 
     pull(reg_owner) |> unique()
 
+df_missing <- googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1TWdrM4ybY_9xYRfWcVL2KqBNTfw-Tyat6mEnzSXKCGU/edit#gid=491876521")
+
+
 ## Initialize remote driver
 d <- rsDriver(
-    port = 4440L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
+    port = 4448L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
 remDr <- d[["client"]]
 #remDr$open()
 tic()
@@ -40,8 +43,16 @@ remDr$goBack()
 # of restarting search again 
 # guos_missing comes from script 17
 owners <- guos_missing # only run for second batch, trying to recover companies missed on the first round
+
+# car_dat comes from script 17, additional companies from Carmine et al dataset
+owners <- car_owners
+
+# df_missing comes from google drive, they are orbis ids recovered manually by Bianca
+owners <- df_missing$orbis_id
+
+remDr$refresh()
 tic()
-for (i in 1:length(owners)){ #seq_along(dat$company)
+for (i in 603:length(owners)){ #seq_along(dat$company)
     tic()
     ## Search one company:
     srch <- remDr$findElement("id", "search")
@@ -64,7 +75,8 @@ for (i in 1:length(owners)){ #seq_along(dat$company)
         "xpath",
         '//*[contains(concat( " ", @class, " " ), concat( " ", "name", " " ))]')
     
-    if(length(opts) == 0) next ## If the company is not found, go to next iteration
+    ## If the company is not found, go to next iteration
+    if(length(opts) == 0 |  opts[[1]]$getElementText() == "") next 
     
     opts[[1]]$getElementText()
     opts[[1]]$clickElement() ## need to interveene here manually for first time
@@ -80,7 +92,7 @@ for (i in 1:length(owners)){ #seq_along(dat$company)
     tbls <- html |> html_elements("table") 
     idx <- which(tbls |> html_attr("class") == "ETBL contactInformation" )
     info <- tbls[idx] |> html_table()
-    Sys.sleep(3)
+    Sys.sleep(10)
     ## Extract revenues:
     drop_menus <- remDr$findElements(
         "xpath",
@@ -159,5 +171,12 @@ remDr$refresh()
 remDr$closeall()
 
 ## save the list objects for later cleaning
-save(revenues, shr_list, guo_list, guos_missing, file = "data/marine_shareholders_missing.RData")
+save(revenues, shr_list, guo_list, owners, file = "data/marine_shareholders_missing_completed.RData")
 
+## J231214: clean RAs
+
+prbls <- owners |> is.na() 
+revenues <- revenues[!prbls] 
+shr_list <- shr_list[!prbls]
+guo_list <- guo_list[!prbls]
+owners <- owners[!prbls]

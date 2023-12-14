@@ -30,7 +30,7 @@ car_dat <- readxl::read_xlsx(path = "~/Documents/Projects/high-seas-corporations
 car_dat |> names()
 
 car_dat |> 
-    select(year, MMSI, best_flag, best_vessel_class, gfw_owner, owner:last_col())
+    select(year, MMSI, best_flag, gfw_owner, owner:last_col())
 
 
 
@@ -47,3 +47,15 @@ car_dat <- car_dat |>
     select(MMSI, owner, gfw_owner)
 
 ### Now with car_dat run 15-shareholders.R again
+car_owners <- car_dat |> 
+    select(owner) |> 
+    unique() |> 
+    filter(owner != 'n/a') |> 
+    mutate(owner = str_remove(owner, pattern = "\\(.*")) |> 
+    mutate(owner = str_remove(
+        owner, pattern = "LTD|LTDA|IMP|EXP|LLC|S\\.L\\.|YK$|\\.\\,|\\.\\, \\.|\\,$|\\, \\.$")) |>
+    mutate(owner = str_trim(owner, "both")) |> unique() |> #print(n=100)
+    pull(owner) 
+
+car_dat |> 
+    filter(str_detect(owner, "OKAY"))

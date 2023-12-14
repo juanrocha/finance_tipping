@@ -8,6 +8,11 @@ editor_options:
 
 # Notes
 
+231213
+
+- Discussion? stranded assets - link to literature and who is exposed to them
+- High net worth individuals: merging the marine data, EID, fossil fuels, mining.
+
 *230816*
 
 - Created a report with preliminary data from Lloyds and Orbis. 
