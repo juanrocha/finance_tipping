@@ -727,6 +727,10 @@ net_edgelist |>
     arrange(desc(channel))
     write_csv(file = "data/table_fig_5_companies-communities.csv")
 
+df_attr |> 
+    select(nodes, starts_with("comm")) |> 
+    write_csv("data/table_for_bianca.csv")
+
 ## maps
 library(sf)
 library(spData)

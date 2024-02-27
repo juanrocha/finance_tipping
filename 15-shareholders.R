@@ -9,17 +9,20 @@ owners <- df_boats |>
     filter(!is.na(reg_owner)) |> 
     pull(reg_owner) |> unique()
 
-df_missing <- googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1TWdrM4ybY_9xYRfWcVL2KqBNTfw-Tyat6mEnzSXKCGU/edit#gid=491876521")
+df_missing <- googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1TWdrM4ybY_9xYRfWcVL2KqBNTfw-Tyat6mEnzSXKCGU/edit#gid=322700622", sheet = 2)
+
+df_missing <- df_missing |> 
+    filter(!is.na(OrbisID))
 
 
 ## Initialize remote driver
 d <- rsDriver(
-    port = 4448L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
+    port = 4444L, browser = "firefox", extraCapabilities = list(acceptInsecureCerts = TRUE)) # should open a chrome
 remDr <- d[["client"]]
 #remDr$open()
 tic()
 remDr$navigate(url = "https://ezp.sub.su.se/login?url=https://orbis4.bvdinfo.com/ip")
-toc() # >40s
+toc() # >6s
 ## Note: working with VPN skips authentification steps! but takes longer to load
 Sys.sleep(30)
 
@@ -48,11 +51,14 @@ owners <- guos_missing # only run for second batch, trying to recover companies 
 owners <- car_owners
 
 # df_missing comes from google drive, they are orbis ids recovered manually by Bianca
-owners <- df_missing$orbis_id
+owners <- df_missing$OrbisID
+
+# df for mining: 29k
+owners <- mines
 
 remDr$refresh()
-tic()
-for (i in 603:length(owners)){ #seq_along(dat$company)
+
+for (i in 411:length(owners)){ #seq_along(dat$company)
     tic()
     ## Search one company:
     srch <- remDr$findElement("id", "search")
@@ -76,7 +82,7 @@ for (i in 603:length(owners)){ #seq_along(dat$company)
         '//*[contains(concat( " ", @class, " " ), concat( " ", "name", " " ))]')
     
     ## If the company is not found, go to next iteration
-    if(length(opts) == 0 |  opts[[1]]$getElementText() == "") next 
+    if(length(opts) == 0) next 
     
     opts[[1]]$getElementText()
     opts[[1]]$clickElement() ## need to interveene here manually for first time
@@ -163,7 +169,7 @@ for (i in 603:length(owners)){ #seq_along(dat$company)
     print(glue::glue("Company ", i, " completed, it took:\n"))
     toc()
 }
-toc()
+
 
 remDr$refresh()
 
@@ -171,7 +177,7 @@ remDr$refresh()
 remDr$closeall()
 
 ## save the list objects for later cleaning
-save(revenues, shr_list, guo_list, owners, file = "data/marine_shareholders_missing_completed.RData")
+save(revenues, shr_list, guo_list, owners, file = "data/carmine_shareholders.RData")
 
 ## J231214: clean RAs
 

@@ -53,7 +53,6 @@ knitr::include_graphics(path = "figures/fig_detection_marine.png")
 ```
 
 
-
 2. Areas prone to marine heatwaves (Smith et al 2021): Marine heatwaves are increasing in frequency and intensity, with socioeconomic consequences due to reduction of marine primary productivity. 
 
 ![Smith 2021 map on marine heat waves](figures/Smith_2023_MHW.png)
@@ -65,12 +64,9 @@ But in order to analyze their map, I replicated their analysis using all data fr
 
 The Global Fish Watch dataset (Kroodsma et al 2018) was used to identify vessels that have operations in pixels with high probability of heatwaves (a driver of regime shifts), or where resilience loss is detected. Out of >70 000 vessels, 16 878 do operate in high risk areas.
 
-Then I used Lloyds (thanks Frida!) to identify owner companies. Out of the 16 878 vessels, I got companies for 2183 of them. Using Orbis I found 793 shareholders for some of the companies. Already now you can see part of our problem: each step we try to go on the chain (vessel - owner - shareholder) we lose observations (one order of magnitude), thus to what extend are results robust? Let's check them first.
-
-## Results
 
 ```{r}
-load("data/cleaned_data_231023.Rda")
+load("data/cleaned_data_231214.Rda")
 load("data/boats_owners.Rda")
 load("data/marine_shareholders.RData")
 ## some initial visualizations
@@ -82,19 +78,25 @@ countries[countries$short_name == "Namibia","x2_alpha_code"] <- "NA"
 
 ```
 
+Then I used Lloyds (thanks Frida!) to identify owner companies. Out of the 16 878 vessels, I got `r length(guos)` owners, some of them individual people, others companies. Using Orbis I found `r shrs$company |> unique() |> length()` companies and `r shrs$name |> unique() |> length()` unique shareholders with `r nrow(shrs)` investment links to the companies. This is after playing around with different strategies to complement the dataset including the data published by Carmine.
+
+## Results
+
+
 Most boats retrieved are indeed fishing boats:
 
 ```{r fig.width= 5, fig.height=3, fig.align='center'}
 df_boats |> 
     ggplot(aes(lli_vessel_type)) +
     geom_bar() +
-    coord_flip()
+    coord_flip() +
+    labs(x = "Vessel type", y = "Count", caption = "Data source: Lloyds")
 ```
 
 However, with Lloyds I can only recovered `r length(owners)` owners, and from that selection, only `r guos |> filter(!is.na(guo)) |> pull(guo) |> length()` have a global ultimate owner. The table below helps you explore the companies for which we have GUOs and the ones missing. **Do you have any suggestions to _automatically_ extract GUOs? e.g. different spelling companies?**
 
 ```{r}
-options(DT.options = list(pageLength = 25))
+options(DT.options = list(pageLength = 10))
 datatable(guos)
 ```
 
@@ -167,6 +169,9 @@ c <- shrs |> #pull(type) |> unique()
 
 a + b + c & theme_light(base_size = 8)
 
+# ggsave(filename = "marine_stats.png", path = "figures/",
+#        plot = a + b + c & theme_light(base_size = 6),
+#        device = "png", width = 7, height = 3)
 ```
 
 ```{r}
@@ -200,7 +205,9 @@ shrs <- shrs |>
 bip <- shrs |> 
     select(name, company, ownership_total) |> 
     filter(!is.na(name)) |> 
-    slice(-338) |>  # problems: the name is the IMO and the shareholder name the same
+    filter(name != company) |>  
+    unique() |> 
+    # problems: the name is the IMO and the shareholder name the same
     network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, loops = TRUE)
 
@@ -209,7 +216,7 @@ bip <- shrs |>
 
 ggplot(ggnetwork::ggnetwork(bip, arrow.gap = 0.005) ,
        aes(x = x, y = y, xend = xend, yend = yend)) +
-    geom_edges(aes(color = ownership_total), size = 0.35, alpha = 1
+    geom_edges(aes(color = ownership_total), linewidth = 0.35, alpha = 1
                #arrow = arrow(length = unit(2, "pt"), type = "closed")
                ) +
     geom_nodes( color = "orange", alpha = 0.4) +
@@ -223,9 +230,9 @@ ggplot(ggnetwork::ggnetwork(bip, arrow.gap = 0.005) ,
     theme(legend.position = "bottom")
 ```
 
-The bipartite network of shareholders connected to companies if we don't have missing data. Please note that we started with over 2700 companies, but not for all there are GUOs, we only have `r shrs |>  filter(!is.na(name)) |> pull(name) |> length()` shareholder - company pairings (links), one of them is a self-link. In other words, I'm not showing the isolates, companies that we identified with Lloyds but for which Orbis did not provided shareholders. The data I'm using to build the network does not distinguish ownership over time, nor name changing. The density of the bipartite network is `r round(network.density(bip),4)`, meaning out of all possible links on the network < 0.1% are realized.
+The bipartite network of shareholders connected to companies if we don't have missing data. Please note that we started with over 2700 companies, but not for all there are GUOs, we only have `r shrs |>  filter(!is.na(name)) |> pull(name) |> length()` shareholder - company pairings (links), one of them is a self-link. In other words, I'm not showing the isolates, companies that we identified with Lloyds but for which Orbis did not provided shareholders. The data I'm using to build the network does not distinguish ownership over time, nor name changing. The density of the bipartite network is `r network.density(bip)`, meaning out of all possible links on the network < 0.001% are realized.
 
-The bipartite network has two one mode projections: a network of shareholders connected to each other if they share investments to the same fishing companies (left), and a network of fishing companies connected to each other if they are invested by the same shareholders (right). As you can see, these networks are also very sparse with very few connections and no "gigant key stone actors" emerging from the data.
+The bipartite network has two one mode projections: a network of shareholders connected to each other if they share investments to the same fishing companies (left), and a network of fishing companies connected to each other if they are invested by the same shareholders (right). As you can see, these networks are also very sparse with very few connections and no "giant key stone actors" emerging from the data.
 
 ```{r fig.width=8, fig.height=4}
 
@@ -234,7 +241,7 @@ a <- shrs |>
     geom_density() +
     labs(x = "Total ownership (%)", tag = "a") +
     #scale_x_continuous(labels = scales::label_percent()) +
-    theme_light()
+    theme_light(base_size = 8)
 
 b <- shrs |> 
     group_by(company) |> 
@@ -243,7 +250,7 @@ b <- shrs |>
     geom_bar() +
     scale_y_log10() +
     labs(x = 'Number of shareholders', y = "Companies", tag = "b") +
-    theme_light()
+    theme_light(base_size = 8)
 
 mat <- bip |> as.sociomatrix() #|> dim()
 
@@ -262,7 +269,7 @@ cmp_net %v% "outdegree" <- sna::degree(cmp_net, gmode = "digraph", cmode = "outd
 
 c <- ggplot(ggnetwork::ggnetwork(shr_net, arrow.gap = 0.005) ,
        aes(x = x, y = y, xend = xend, yend = yend)) +
-    geom_edges(aes(color = w), size = 0.15, alpha = .5
+    geom_edges(aes(color = w), linewidth = 0.15, alpha = .5
                #arrow = arrow(length = unit(2, "pt"), type = "closed")
                ) +
     geom_nodes( color = "orange", alpha = 0.4) +
@@ -367,7 +374,7 @@ d <- ggplot(ggnetwork::ggnetwork(net, arrow.gap = 0.005) ,
         "Shareholders",palette = "berlin", 
         guide = guide_colorbar(barwidth = unit(4,"cm"), barheight = unit(2, "mm"))) +
     scale_size(range = c(4,10), breaks = c(0, 100, 200)) +
-    theme_void() + labs(tag = "d") +
+    theme_void(base_size = 7) + labs(tag = "d") +
     theme(legend.position = "bottom")
 
 
@@ -383,16 +390,22 @@ f <- df_stats |>
     geom_text(
         aes(label = label), nudge_y = -0.5, size = 2) +
     scale_size(range = c(1,10), breaks = c(0, 100, 200)) +
-    theme_light() + labs(tag = "c") +
+    theme_light(base_size = 7) + labs(tag = "c") +
     theme(legend.position = "bottom")
 
 ((a/b/f) | d) + plot_layout(widths = c(1,3))
+
+ggsave(
+    path = "figures/", filename = "marine_nets.png", device = "png",
+    width = 7, height = 5, dpi = 500,
+    plot = ((a/b/f) | d) + plot_layout(widths = c(1,3))
+)
 
 ```
 
 A few observations worth noticing: most ownership is either 50 or 100% contrary to what we observed in the emergent zoonotic disease paper. Bear in mind that I did not filter out ownership over time, so if a company A is own 100% by B in 2019, and in 2022 it is own by C just because B change name to C or C is actually a different company (sell / buy), they both currently appear on the data. 
 
-Second, most companies have only a few shareholders, just around 10 actually have 5 shareholders or more. Several of the investments are by shareholders on companies in the same countries, on the network these are loops. They are hard to see in the visualization but I scaled node size to correspond to these loops. Norway is the larger country with loops (> 200 shareholders invest in fishing companies inside Norway). For countries where there is actually foreign investments, Spain, UK and France are hot spots of shareholders, while Russia is a hot spot for receiving investments (see panel C).
+Second, most companies have only a few shareholders. Several of the investments are by shareholders on companies in the same countries, on the network these are loops. They are hard to see in the visualization but I scaled node size to correspond to these loops. Norway is the larger country with loops (> 200 shareholders invest in fishing companies inside Norway). For countries where there is actually foreign investments, Spain, UK and France are hot spots of shareholders, while Russia is a hot spot for receiving investments (see panel C).
 
 Below another representation with the loops: 
 
@@ -412,10 +425,79 @@ I ran an exponential random graph model on the country network to explore what i
 
 The null model (left) assumes that the only process governing link formation is randomness. The second model (centre) assumes all that matter is the difference between governance indicators across connected countries. And the third model (right) assumes that both differences and the individual attributes are important. The best model is the last one, which predicts that links are more likely to form in countries with higher government efficiency, and the difference in political stability is negative (receiving countries are more unstable than investing ones). In fact, politically stable countries are less likely to form links. All other governance attributes (rule of law, corruption, regulatory quality) do not seem to influence link formation or the likelihood that shareholders makes foreign investments on fishing companies exposed to regime shifts.
 
+**Global Ultimate Owners**
+
+```{r fig.width=8, fig.height=8}
+load("data/cleaned_data_231214.Rda")
+
+guos <- guos |>
+    mutate(class = case_when(
+        str_detect(guo, "Public") ~ "Public",
+        str_detect(guo, "Private") ~ "Private",
+        str_detect(guo, "Formerly") ~ "Former public",
+        .default = guo
+    )) |> # pull(class) |> table()
+    mutate(
+        ## remove all the cases
+        guo = str_remove(guo, "Private The Global Ultimate Owner of this controlled subsidiary is "), 
+        guo = str_remove(guo, "Formerly publicly quoted The Global Ultimate Owner of this controlled subsidiary is "),
+        guo = str_remove(guo, "Private This entity is a marine vessel of "),
+        guo = str_remove(guo, "Publicly quoted The Global Ultimate Owner of this controlled subsidiary is "),
+        guo = str_remove(guo, "Private This entity was a branch of "),
+        guo = str_remove(guo, "Private This entity is a branch of "), 
+        guo = str_remove(guo, "Private This entity is a foreign company of "),
+        ) |> #pull(guo) |> unique() #|> 
+    mutate(
+        guo = case_when(
+            guo =="Private This entity is a marine vessel." ~ NA,
+            guo == "Private The Global Ultimate Owner of this company could not be identified."  ~ NA,
+            guo == "Private This entity is a branch." ~ NA,
+            guo == "Publicly quoted This company is Independent (but not the Global Ultimate Owner of a Corporate Group)"  ~ NA,
+            guo == "Publicly quoted This company is a Single location" ~ NA, 
+            guo == "Private" ~ NA,
+            guo == "Private This entity is a foreign company." ~ NA,
+            guo == "Private This company is Independent (but not the Global Ultimate Owner of a Corporate Group)" ~NA,
+            guo == "Publicly quoted This company is the Global Ultimate Owner of the corporate group"  ~ orbis_name,
+            guo == "Private This company is the Global Ultimate Owner of the corporate group"  ~ orbis_name,
+            guo == "Formerly publicly quoted This company is the Global Ultimate Owner of the corporate group" ~ orbis_name,
+            guo == "Private This company is a Single location" ~ NA,
+            .default = guo
+        )
+    )  |> 
+    mutate(person = str_starts(guo, pattern = "MR|MRS|MS")
+    )
+
+
+a <- guos |> 
+    ggplot(aes(class)) +
+    geom_bar() +
+    coord_flip()
+
+b <- guos |> 
+    ggplot(aes(person)) + 
+    geom_bar() +
+    coord_flip()
+
+c <- guos |> 
+    filter(!is.na(guo), person == FALSE) |> 
+    group_by(guo) |> 
+    summarize(n = n()) |>
+    arrange(n) |> 
+    slice_tail(n = 25) |> 
+    mutate(guo = as_factor(guo)) |> 
+    ggplot(aes(n, guo)) +
+    geom_col()
+
+(a + b) / c & theme_light(base_size = 8)
+
+
+```
+
+
+
 ## Discussion
 
-1. How do you think we can improve the analysis?
-2. What other data sets and questions can we ask?
+1. What to do with GUOs? Do we include them on the analysis?
 
-In previous discussions we thought of using Eikon to get info on debt, who fund companies? In a preliminary analysis with Peruvian vessels and companies we did not find anything in Eikon. Given the sparsity of the current dataset, I doubt we will find much, but happy to discuss.
+In previous discussions we thought of using Eikon to get info on debt, who fund companies? In a preliminary analysis with Peruvian vessels and companies we did not find anything in Eikon. Given the sparsity of the current dataset, I doubt we will find much, but happy to discuss. I also tried with the Datastream (part of Refinitiv) platform thanks to IVL access. I did not find much info on debt, the companies are too small / unknown. 
 

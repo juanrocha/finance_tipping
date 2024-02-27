@@ -8,7 +8,21 @@ editor_options:
 
 # Notes
 
-231213
+
+
+
+**240220**
+
+- All data from Carmine is now added to the database. Bianca manually annotated vessels for whom we could not find orbis ID automatically (N=411). This added observations to our GUO, revenues and shareholders. However, from Orbis although the company exist, there is still missing 374 companies shareholder data, 286 companies revenues data, and 143 companies GUOs data. All data is now combined and saved in `data/cleaned_data_231214.Rda`
+
+**240216**
+
+- A sample of ~10k mine names were downloaded from Orbis over Xmas break. That took ~10days of computing time. The problem is many mines are not easily matchable with records in Orbis. For a few of them one can be sure due to the economic activity field in Orbis (but not always recorded), or because the mine name contains the product they exploit: diamonds, gold, etc. However, for many of them we don't know if the company info downloaded is actually a mine.
+- Idea: one could circumvent this by hard coding the verification: it is mine if the econ activity is recorded, or if the name contains the metal. Other options are if the company is based on the country where the coordinates from Maus are recorded... buiding up a confidence score or something similar. Once solved, we can go ahead and download more. Bear in mind it takes long time to do so.
+- Marine paper: I need to download the missing Carmine companies and then merge with complete dataset, so scripts 15 and 16 with missing data corrected by Bianca.
+
+
+**231213**
 
 - Discussion? stranded assets - link to literature and who is exposed to them
 - High net worth individuals: merging the marine data, EID, fossil fuels, mining.

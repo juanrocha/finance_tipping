@@ -1,0 +1,54 @@
+---
+title: "Identifying financial actors exposed to marine tipping points"
+format: pdf
+editor: visual
+date: "2024-02-27"
+author: 
+  - name: Juan C. Rocha
+    orcid: 0000-0003-2322-5459
+    email: juan.rocha@su.se
+    affiliation:
+      - name: Stockholm Resilience Centre, Stockholm University
+abstract: >
+  Here is the abstract
+  multiple lines
+keywords:
+  - Tipping points
+  - Financial actors
+  - Regime shifts
+---
+
+## Outline
+
+-   Introduction \[1000w\]
+
+-   Method \[800w\]
+
+-   Results \[1000w\]
+
+-   Discussion \[800w\]
+
+-   Conclusion \[400w\]
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document.
+To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code.
+You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

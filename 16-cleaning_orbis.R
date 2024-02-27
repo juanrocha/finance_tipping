@@ -10,6 +10,7 @@ load("data/marine_shareholders.RData")
 load("data/marine_shareholders_missing.RData")
 load("data/marine_shareholders_Carmine.RData")
 load("data/marine_shareholders_missing_completed.RData")
+load("data/carmine_shareholders.RData") # this is the missing values of carmine manually coded by Bianca
 df_boats
 
 owners <- df_boats |>
@@ -158,11 +159,11 @@ toc() #25s
 guos <- bind_rows(guos)
 revs <- bind_rows(revs)
 
+# 411 is the number of owners recovered from Carmine (annotated by Bianca)
+guos$company <- owners[1:411] #owners[1:2181] # the last two are missing for now
+revs$company <- owners[1:411] #owners[1:2181]
 
-guos$company <- owners[1:1387] #owners[1:2181] # the last two are missing for now
-revs$company <- owners[1:1387] #owners[1:2181]
-
-shrs <- map2(shrs,  owners[1:1387], 
+shrs <- map2(shrs,  owners[1:411], 
              function(x,y) {x$company <- y; return(x)})
 shrs <- bind_rows(shrs)
 
@@ -207,10 +208,10 @@ shrs <- bind_rows(shrs |> filter(!is.na(name)), shrs2 |> filter(!is.na(name)))
 
 # recover the list of missing companies:
 df_missing <- tibble(
-    company = guos2 |> filter(is.na(orbis_id)) |> pull(company)
+    company = guos |> filter(is.na(orbis_id)) |> pull(company)
 )
 
-write_csv(df_missing, file = "data/missing_owners.csv")
+write_csv(df_missing, file = "data/missing_owners_carmine.csv")
 
 
 
@@ -344,6 +345,7 @@ library(network)
 bip <- shrs |> 
     select(name, company, ownership_total) |> 
     filter(!is.na(name)) |> 
+    #filter(name != company) |> 
     slice(-338) |>  # problems: the name is the IMO and the shareholder name the same
     network(directed = FALSE, bipartite = TRUE, matrix.type = "edgelist", 
             ignore.eval=FALSE, loops = TRUE)
