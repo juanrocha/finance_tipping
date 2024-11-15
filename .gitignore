@@ -16,3 +16,4 @@ data/
 *.pdf
 *.nc
 *.docx
+.Rapp.history

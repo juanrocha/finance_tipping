@@ -8,8 +8,22 @@ editor_options:
 
 # Notes
 
+**241112**
+
+- MHW did not have strong clear effects on single species models (some sp decline while other thrive). But sp can move, primary producers don't move. MHW so far have been contained to limited areas, but projections suggest larger scale possibly longer than the ability of fish to move away.
+- 
+
+**sometime**
+
+- Make sure to read for the paper:
+    - Malin Pinsky paper on MHW [X]
+    - Latest Kroodsma paper on fishing fleets []
 
 
+**240321**
+
+- The lists of owners have numbers because at some point we decided to search for OrbisIDs instead of company names. The company names results were ambiguous and Bianca did some manual work to match ambiguous names to IDs that were of companies fishing. That is why we have some owners coded as orbis ID instad of compnay names.
+- `guos` is not unique because the same company with the same `orbis_id` can have multiple GUOs over time. We do not distinguish them.
 
 **240220**
 
